@@ -1,0 +1,2214 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>ระบบหน่วยรถสายส่ง - โรงน้ำแข็งแม่ใจ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Prompt', sans-serif; -webkit-tap-highlight-color: transparent; }
+    .active-tab { color: #2563eb !important; border-top: 3px solid #2563eb; background-color: #eff6ff; }
+    input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+
+    /* 🛡️ บังคับสีตัวอักษรและพื้นหลังใน Dropdown ให้คมชัดบนมือถือทุกรุ่น 100% */
+    select, select option, select optgroup {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      font-weight: 700;
+    }
+
+    /* 🖨️ ระบบพิมพ์ 2 โหมด: สลิป 80mm และ รายงานสรุปกะ A4 (PDF) */
+    @media print {
+      html, body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      #app-screen, #login-screen, #drv-modal-backdrop, #loading, #toast-box, nav {
+        display: none !important;
+      }
+      body.print-slip #a4-container { display: none !important; }
+      body.print-slip #slip-container, body.print-slip #slip-container * { visibility: visible !important; }
+      body.print-slip #slip-container {
+        display: block !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 80mm !important;
+        padding: 4mm !important;
+        font-family: 'Prompt', sans-serif;
+        color: #000 !important;
+        font-size: 12px;
+        background: #fff !important;
+      }
+      body.print-a4 #slip-container { display: none !important; }
+      body.print-a4 #a4-container, body.print-a4 #a4-container * { visibility: visible !important; }
+      body.print-a4 #a4-container {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        padding: 0 !important;
+        font-family: 'Prompt', sans-serif;
+        color: #000 !important;
+        background: #fff !important;
+      }
+      body.print-a4 tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+      @page { size: A4 portrait; margin: 8mm; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-24 select-none">
+
+  <!-- ⏳ LOADING OVERLAY -->
+  <div id="loading" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex flex-col items-center justify-center text-white">
+    <div class="w-11 h-11 border-4 border-white border-t-transparent rounded-full animate-spin mb-3"></div>
+    <p class="text-sm font-bold">กำลังประมวลผลข้อมูล...</p>
+  </div>
+
+  <!-- 🔔 TOAST NOTIFICATION -->
+  <div id="toast-box" class="fixed top-4 inset-x-4 z-50 flex flex-col gap-2 pointer-events-none max-w-md mx-auto"></div>
+
+  <!-- 🪟 MODAL POPUP -->
+  <div id="drv-modal-backdrop" class="hidden fixed inset-0 bg-slate-900/75 backdrop-blur-xs z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div id="drv-modal-content" class="bg-white text-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto"></div>
+  </div>
+
+  <!-- 🔒 LOGIN SCREEN -->
+  <div id="login-screen" class="min-h-screen flex flex-col justify-center p-6 max-w-md mx-auto">
+    <div class="bg-white rounded-3xl shadow-xl p-6 border border-slate-200 space-y-5">
+      <div class="text-center">
+        <div class="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-blue-200 mb-3">
+          <i data-lucide="truck" class="w-9 h-9"></i>
+        </div>
+        <h1 class="text-xl font-extrabold text-slate-800">ระบบหน่วยรถสายส่ง</h1>
+        <p class="text-xs text-slate-500">โรงน้ำแข็งแม่ใจ (V5.4 Master Complete)</p>
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-600 block mb-1.5 text-center">กรอกรหัส PIN พนักงาน (หรือ 4 ตัวท้ายเบอร์โทร)</label>
+        <input type="password" id="login-pin" inputmode="numeric" maxlength="6" placeholder="••••" onkeydown="if(event.key==='Enter') verifyDriverPin()" class="w-full p-4 text-center text-3xl tracking-[0.5em] font-black border-2 border-slate-300 rounded-2xl focus:border-blue-600 outline-none bg-slate-50">
+      </div>
+      <button onclick="verifyDriverPin()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold rounded-2xl shadow-lg shadow-blue-200 text-base transition flex items-center justify-center gap-2">
+        <i data-lucide="lock" class="w-5 h-5"></i> เข้าสู่สายส่งของฉัน
+      </button>
+    </div>
+  </div>
+
+  <!-- 📱 MAIN APP SCREEN -->
+  <div id="app-screen" class="hidden max-w-md mx-auto">
+    <header class="bg-slate-900 text-white p-4 rounded-b-3xl shadow-lg">
+      <div class="flex justify-between items-start mb-2">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-lg shrink-0">🚚</div>
+          <div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span id="locked-route-badge" class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-md text-xs font-extrabold">🔒 สายส่ง</span>
+              <span id="drv-vehicle-badge" class="text-[11px] text-slate-300 font-semibold"></span>
+            </div>
+            <h2 id="drv-name-label" class="font-bold text-xs text-slate-300 mt-0.5">คนขับรถ</h2>
+          </div>
+        </div>
+        <div class="flex gap-1.5">
+          <button onclick="openLoadHistoryModal()" class="px-2.5 py-2 bg-indigo-600/80 hover:bg-indigo-600 rounded-xl text-white text-[10px] font-extrabold active:scale-90 transition flex items-center gap-1" title="ดูประวัติการเบิกน้ำแข็ง">
+            <i data-lucide="history" class="w-3.5 h-3.5"></i> ประวัติเบิก
+          </button>
+          <button onclick="reloadDriverData()" class="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-200 active:scale-90 transition" title="ซิงค์ข้อมูล"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+          <button onclick="logoutDriver()" class="p-2.5 bg-rose-900/60 hover:bg-rose-800 rounded-xl text-rose-200 active:scale-90 transition" title="ออกจากระบบ"><i data-lucide="log-out" class="w-4 h-4"></i></button>
+        </div>
+      </div>
+
+      <div id="mileage-status-bar" class="mt-2 bg-slate-800/90 border border-slate-700 rounded-2xl p-2.5 flex items-center justify-between gap-2"></div>
+
+      <div class="grid grid-cols-3 gap-2 mt-2.5 text-center">
+        <div onclick="openLoadHistoryModal()" class="bg-slate-800/90 p-2 rounded-xl border border-slate-700/60 cursor-pointer active:scale-95">
+          <p class="text-[10px] text-slate-400">คงเหลือในรถ</p>
+          <p id="stat-remain-qty" class="text-sm font-black text-amber-400">0 หน่วย</p>
+        </div>
+        <div onclick="switchTab('shops')" class="bg-slate-800/90 p-2 rounded-xl border border-slate-700/60 cursor-pointer active:scale-95">
+          <p class="text-[10px] text-slate-400">ส่งแล้ววันนี้</p>
+          <p id="stat-shop-progress" class="text-sm font-black text-blue-400">0 / 0 ร้าน</p>
+        </div>
+        <div onclick="switchTab('summary')" class="bg-slate-800/90 p-2 rounded-xl border border-slate-700/60 cursor-pointer active:scale-95">
+          <p class="text-[10px] text-slate-400">เงินสดต้องส่ง</p>
+          <p id="stat-cash-net" class="text-sm font-black text-emerald-400">฿0</p>
+        </div>
+      </div>
+
+      <div class="mt-2.5 pt-2 border-t border-slate-800">
+        <div id="truck-stock-pills" class="grid grid-cols-2 gap-1.5"></div>
+      </div>
+    </header>
+
+    <main id="tab-content" class="p-3.5 space-y-3.5"></main>
+
+    <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 shadow-2xl z-30 max-w-md mx-auto grid grid-cols-4">
+      <button onclick="switchTab('sale')" id="nav-sale" class="py-2.5 flex flex-col items-center justify-center gap-1 text-slate-500 font-bold text-[11px] active-tab">
+        <i data-lucide="shopping-cart" class="w-5 h-5"></i> ส่งน้ำแข็ง
+      </button>
+      <button onclick="switchTab('shops')" id="nav-shops" class="py-2.5 flex flex-col items-center justify-center gap-1 text-slate-500 font-bold text-[11px] relative">
+        <i data-lucide="store" class="w-5 h-5"></i> เช็กร้าน/บิล
+        <span id="nav-debt-badge" class="hidden absolute top-1 right-3 bg-rose-600 text-white text-[9px] font-black px-1.5 rounded-full">0</span>
+      </button>
+      <button onclick="switchTab('transfer')" id="nav-transfer" class="py-2.5 flex flex-col items-center justify-center gap-1 text-slate-500 font-bold text-[11px]">
+        <i data-lucide="arrow-left-right" class="w-5 h-5"></i> เบิก/โอน
+      </button>
+      <button onclick="switchTab('summary')" id="nav-summary" class="py-2.5 flex flex-col items-center justify-center gap-1 text-slate-500 font-bold text-[11px]">
+        <i data-lucide="wallet" class="w-5 h-5"></i> ส่งเงิน/สรุป
+      </button>
+    </nav>
+  </div>
+
+  <div id="slip-container" class="hidden"></div>
+  <div id="a4-container" class="hidden"></div>
+
+  <script>
+    // ==========================================
+    // 🧠 GLOBAL DRIVER STATE
+    // ==========================================
+    let DRV = {
+      pin: '',
+      driver: {},
+      lockedRoute: null,
+      myDispatch: null,
+      selectedCustomerId: '',
+      walkInCustomName: '',
+      walkInPresetMode: 'NORMAL',
+      walkInPriceDelta: 0,
+      walkInPromo3For100: false,
+      walkInCustomPrices: {},
+      walkInGroupKeys: [],
+      skippedShopsMap: {}, // เก็บร้านค้าที่กดข้ามในกะนี้ พร้อมเหตุผล
+      isReorderingShops: false,
+      shopFilterMode: 'PENDING',
+      shopSearchQuery: '',
+      cart: {},
+      payType: 'เงินสด',
+      truckInventory: [],
+      customerSalesMap: {},
+      reloadHistory: [],
+      finance: {
+        cashSales: 0, transferSales: 0, creditSales: 0, totalSales: 0,
+        collectedDebtCash: 0, collectedDebtTransfer: 0, cashFuelExpense: 0,
+        netCashToSubmit: 0, creditBills: []
+      },
+      data: {
+        otherActiveRoutes: [], vehicles: [], products: [], customers: [],
+        specialPrices: [], promoMap: {}, customerDebtMap: {},
+        todayDebtPayments: [], todayRouteSales: [], todayTransfers: [], todayFuelLogs: []
+      }
+    };
+
+    function esc(str) {
+      return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    function closeDrvModal() {
+      document.getElementById('drv-modal-backdrop').classList.add('hidden');
+    }
+
+    function toast(msg, type = 'success') {
+      const box = document.getElementById('toast-box');
+      const el = document.createElement('div');
+      el.className = `${type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white p-3.5 rounded-2xl shadow-xl font-bold text-sm text-center transition-all`;
+      el.innerText = msg;
+      box.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    function callApi(action, payload = {}) {
+      document.getElementById('loading').classList.remove('hidden');
+      return new Promise((resolve, reject) => {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run.withSuccessHandler(res => {
+            document.getElementById('loading').classList.add('hidden');
+            if (res && res.status === 'success') resolve(res.data);
+            else { toast(res ? res.message : 'เกิดข้อผิดพลาด', 'error'); reject(res); }
+          }).withFailureHandler(err => {
+            document.getElementById('loading').classList.add('hidden');
+            toast(err.message, 'error');
+            reject(err);
+          }).processApiRequest({ action, payload });
+        } else {
+          document.getElementById('loading').classList.add('hidden');
+          toast('กรุณาเปิดใช้งานผ่านลิงก์ Web App', 'error');
+          reject('Not in GAS');
+        }
+      });
+    }
+
+    // ==========================================
+    // ⏭️ ระบบข้ามคิวร้านที่ไม่รับน้ำแข็ง (จำสถานะตลอดกะ + แสดงเหตุผลในรายงาน A4)
+    // ==========================================
+    function loadSkippedShopsState_() {
+      const dspId = DRV.myDispatch ? DRV.myDispatch.DispatchID : '';
+      if (!dspId) { DRV.skippedShopsMap = {}; return; }
+      try {
+        const raw = sessionStorage.getItem('MAEJAI_SKIP_' + dspId);
+        DRV.skippedShopsMap = raw ? JSON.parse(raw) : {};
+      } catch (e) { DRV.skippedShopsMap = {}; }
+    }
+
+    function saveSkippedShopsState_() {
+      const dspId = DRV.myDispatch ? DRV.myDispatch.DispatchID : '';
+      if (!dspId) return;
+      try {
+        sessionStorage.setItem('MAEJAI_SKIP_' + dspId, JSON.stringify(DRV.skippedShopsMap || {}));
+      } catch (e) {}
+    }
+
+    function applySkippedShopsOrdering_() {
+      loadSkippedShopsState_();
+      const custs = DRV.data.customers || [];
+      if (!custs.length) return;
+      const normalList = [];
+      const skippedList = [];
+      custs.forEach((c, idx) => {
+        if (!c.SequenceNo) c.SequenceNo = idx + 1;
+        if (DRV.skippedShopsMap[c.CustomerID]) {
+          c.SkipReason = DRV.skippedShopsMap[c.CustomerID];
+          skippedList.push(c);
+        } else {
+          c.SkipReason = '';
+          normalList.push(c);
+        }
+      });
+      DRV.data.customers = [...normalList, ...skippedList];
+    }
+
+    function openSkipShopModal(customerId, customerName) {
+      document.getElementById('drv-modal-content').innerHTML = `
+        <div class="space-y-4">
+          <div class="flex justify-between items-center border-b pb-2.5">
+            <div>
+              <span class="text-[10px] font-extrabold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">แจ้งเหตุผลที่ไม่ลงน้ำแข็ง</span>
+              <h3 class="font-extrabold text-base text-slate-800 mt-1">${customerName}</h3>
+            </div>
+            <button onclick="closeDrvModal()" class="p-1 text-slate-400"><i data-lucide="x" class="w-6 h-6"></i></button>
+          </div>
+
+          <div>
+            <label class="text-xs font-bold text-slate-600 block mb-1.5">เลือกเหตุผลที่ไม่รับน้ำแข็งวันนี้:</label>
+            <div class="grid grid-cols-1 gap-2">
+              <button type="button" onclick="submitSkipShop('${esc(customerId)}', 'ตู้แช่เต็ม / น้ำแข็งยังไม่หมด')" class="p-3 bg-slate-50 hover:bg-amber-50 border border-slate-200 rounded-xl font-bold text-xs text-left text-slate-700 transition">📦 ตู้แช่เต็ม / น้ำแข็งยังไม่หมด</button>
+              <button type="button" onclick="submitSkipShop('${esc(customerId)}', 'ร้านปิด / หยุดวันนี้')" class="p-3 bg-slate-50 hover:bg-amber-50 border border-slate-200 rounded-xl font-bold text-xs text-left text-slate-700 transition">🔒 ร้านปิด / หยุดชั่วคราว</button>
+              <button type="button" onclick="submitSkipShop('${esc(customerId)}', 'ลูกค้ายังไม่พร้อมรับ (ขอเลื่อนเวลา)')" class="p-3 bg-slate-50 hover:bg-amber-50 border border-slate-200 rounded-xl font-bold text-xs text-left text-slate-700 transition">⏳ ลูกค้ายังไม่พร้อมรับ (ขอเลื่อน)</button>
+              <button type="button" onclick="submitSkipShop('${esc(customerId)}', 'ปฏิเสธการรับสินค้า')" class="p-3 bg-slate-50 hover:bg-amber-50 border border-slate-200 rounded-xl font-bold text-xs text-left text-rose-700 transition">❌ ปฏิเสธการรับสินค้า</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs font-bold text-slate-600 block mb-1">หรือพิมพ์หมายเหตุเพิ่มเติม:</label>
+            <input type="text" id="skip-custom-note" class="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-bold" placeholder="เช่น ขอให้ส่งรอบบ่ายแทน...">
+          </div>
+
+          <div class="flex gap-2 pt-2">
+            <button onclick="closeDrvModal()" class="w-1/2 py-3 bg-slate-100 rounded-xl font-bold text-xs text-slate-700">ปิดหน้าต่าง</button>
+            <button onclick="submitSkipShopCustom('${esc(customerId)}')" class="w-1/2 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-extrabold text-xs shadow-md">บันทึกข้ามคิวนี้</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('drv-modal-backdrop').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function submitSkipShop(customerId, reason) {
+      DRV.skippedShopsMap[customerId] = reason || 'ข้ามคิว';
+      saveSkippedShopsState_();
+      applySkippedShopsOrdering_();
+      if (DRV.selectedCustomerId === customerId) DRV.selectedCustomerId = '';
+      closeDrvModal();
+      toast(`บันทึกข้ามร้าน (${reason}) เรียบร้อย เลื่อนไปคิวถัดไปแล้วค่ะ`);
+      switchTab(DRV.currentTab || 'sale');
+    }
+
+    function submitSkipShopCustom(customerId) {
+      const customReason = document.getElementById('skip-custom-note')?.value.trim() || 'ไม่ได้ลงน้ำแข็งวันนี้';
+      submitSkipShop(customerId, customReason);
+    }
+
+    function unskipShop(customerId) {
+      delete DRV.skippedShopsMap[customerId];
+      saveSkippedShopsState_();
+      DRV.selectedCustomerId = customerId;
+      switchTab('sale');
+    }
+
+    // ==========================================
+    // 🔐 LOGIN & SYNC DATA
+    // ==========================================
+    async function verifyDriverPin(silentPin) {
+      const pin = silentPin || document.getElementById('login-pin').value.trim();
+      if (!pin) return toast('กรุณากรอกรหัส PIN พนักงาน', 'error');
+      try {
+        const d = await callApi('getDriverInitData', { pin });
+        DRV.pin = pin;
+        sessionStorage.setItem('MAEJAI_DRV_PIN', pin);
+        DRV.driver = d.driver || {};
+        DRV.lockedRoute = d.lockedRoute;
+        DRV.myDispatch = d.myDispatch;
+        DRV.data = d;
+        DRV.shopFilterMode = 'PENDING';
+
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('app-screen').classList.remove('hidden');
+
+        applySkippedShopsOrdering_();
+        computeRouteAndTruckState();
+        switchTab('sale');
+
+        if (DRV.myDispatch && (!parseFloat(DRV.myDispatch.StartMileage) || parseFloat(DRV.myDispatch.StartMileage) <= 0)) {
+          openMileageModal('START');
+        }
+      } catch (e) {
+        if (silentPin) sessionStorage.removeItem('MAEJAI_DRV_PIN');
+      }
+    }
+
+    function logoutDriver() {
+      DRV.pin = '';
+      DRV.cart = {};
+      DRV.selectedCustomerId = '';
+      DRV.walkInCustomName = '';
+      DRV.walkInCustomPrices = {};
+      sessionStorage.removeItem('MAEJAI_DRV_PIN');
+      document.getElementById('login-pin').value = '';
+      document.getElementById('app-screen').classList.add('hidden');
+      document.getElementById('login-screen').classList.remove('hidden');
+    }
+
+    async function reloadDriverData() {
+      try {
+        const d = await callApi('getDriverInitData', { pin: DRV.pin });
+        DRV.driver = d.driver || {};
+        DRV.lockedRoute = d.lockedRoute;
+        DRV.myDispatch = d.myDispatch;
+        DRV.data = d;
+        applySkippedShopsOrdering_();
+        computeRouteAndTruckState();
+        switchTab(DRV.currentTab || 'sale');
+        toast(DRV.myDispatch ? 'ซิงค์ข้อมูลล่าสุดเรียบร้อย' : 'เสมียนปิดกะสายส่งนี้เรียบร้อยแล้วค่ะ');
+      } catch (e) {}
+    }
+
+    // ==========================================
+    // 🧮 COMPUTE TRUCK INVENTORY, LOAD HISTORY & SEPARATE WALK-IN GROUPS
+    // ==========================================
+    function computeRouteAndTruckState() {
+      const dsp = DRV.myDispatch;
+      const routeSales = DRV.data.todayRouteSales || [];
+      const transfers = DRV.data.todayTransfers || [];
+      const fuelLogs = DRV.data.todayFuelLogs || [];
+      const rawDebtMap = DRV.data.customerDebtMap || {};
+      const allProds = DRV.data.products || [];
+
+      const normalizedDebtMap = {};
+      Object.keys(rawDebtMap).forEach(k => {
+        const dObj = rawDebtMap[k];
+        if (!dObj) return;
+        let finalKey = k;
+        let finalName = dObj.CustomerName || '';
+        if (String(k).startsWith('WALK-IN') || dObj.IsWalkIn) {
+          finalName = normalizeDrvWalkInName_(finalName || String(k).replace(/^WALK-IN::/, ''));
+          finalKey = `WALK-IN::${finalName}`;
+        }
+        if (!normalizedDebtMap[finalKey]) {
+          normalizedDebtMap[finalKey] = {
+            CustomerID: finalKey,
+            RawCustomerID: dObj.RawCustomerID || 'WALK-IN',
+            CustomerName: finalName,
+            IsWalkIn: !!dObj.IsWalkIn || String(k).startsWith('WALK-IN'),
+            totalDebt: 0,
+            billCount: 0,
+            bills: []
+          };
+        }
+        normalizedDebtMap[finalKey].totalDebt += (parseFloat(dObj.totalDebt) || 0);
+        normalizedDebtMap[finalKey].billCount += (parseInt(dObj.billCount, 10) || 0);
+        if (Array.isArray(dObj.bills)) {
+          normalizedDebtMap[finalKey].bills.push(...dObj.bills);
+        }
+      });
+      DRV.data.customerDebtMap = normalizedDebtMap;
+      const debtMap = DRV.data.customerDebtMap;
+
+      document.getElementById('drv-name-label').innerText = `คนขับ: ${DRV.driver.EmpName || '-'}`;
+
+      const debtShopCount = Object.keys(debtMap).length;
+      const navDebtBadge = document.getElementById('nav-debt-badge');
+      if (navDebtBadge) {
+        navDebtBadge.innerText = debtShopCount;
+        navDebtBadge.classList.toggle('hidden', debtShopCount === 0);
+      }
+
+      if (!dsp || !DRV.lockedRoute) {
+        DRV.truckInventory = [];
+        DRV.customerSalesMap = {};
+        DRV.walkInGroupKeys = [];
+        DRV.reloadHistory = [];
+        DRV.cart = {};
+        DRV.selectedCustomerId = '';
+        DRV.walkInCustomName = '';
+        DRV.walkInCustomPrices = {};
+        DRV.finance = {
+          cashSales: 0, transferSales: 0, creditSales: 0, totalSales: 0,
+          collectedDebtCash: 0, collectedDebtTransfer: 0, cashFuelExpense: 0,
+          netCashToSubmit: 0, creditBills: []
+        };
+
+        document.getElementById('locked-route-badge').innerText = '🏁 ปิดกะแล้ว / รอปล่อยรถ';
+        document.getElementById('drv-vehicle-badge').innerText = '';
+        document.getElementById('stat-remain-qty').innerText = '0 หน่วย';
+        document.getElementById('stat-shop-progress').innerText = '0 / 0 ร้าน';
+        document.getElementById('stat-cash-net').innerText = '฿0';
+        document.getElementById('mileage-status-bar').innerHTML = `<p class="text-xs text-emerald-400 font-extrabold w-full text-center py-1">✅ เสมียนปิดกะสายส่งนี้เรียบร้อยแล้ว (รอปล่อยรถกะถัดไป)</p>`;
+        document.getElementById('truck-stock-pills').innerHTML = '';
+        return;
+      }
+
+      document.getElementById('locked-route-badge').innerText = `🔒 ${DRV.lockedRoute.RouteName}`;
+      document.getElementById('drv-vehicle-badge').innerText = `(${dsp.VehicleID || '-'})`;
+
+      const noteParts = String(dsp.Note || '').split('|').map(s => s.trim()).filter(s => s !== '');
+      DRV.reloadHistory = noteParts.map((part, idx) => {
+        const isInitial = idx === 0 && part.startsWith('เบิก:');
+        const isReload = part.includes('เบิกเพิ่ม');
+        const isTransfer = part.includes('โอนให้') || part.includes('รับโอนจาก');
+        return {
+          step: idx + 1,
+          type: isInitial ? 'INITIAL' : (isReload ? 'RELOAD' : (isTransfer ? 'TRANSFER' : 'NOTE')),
+          label: isInitial ? `🚀 เบิกกะเช้า (${String(dsp.DispatchDate || '').slice(11, 16) || 'เปิดกะ'})` : (isReload ? '➕ เบิกเพิ่มระหว่างวัน' : (isTransfer ? '🔄 โอนย้ายระหว่างสาย' : '📝 หมายเหตุ')),
+          detail: part.replace(/^เบิก:\s*/, '')
+        };
+      });
+
+      const startMile = parseFloat(dsp.StartMileage) || 0;
+      const endMile = parseFloat(dsp.EndMileage) || 0;
+      const dist = (startMile > 0 && endMile >= startMile) ? (endMile - startMile) : 0;
+
+      document.getElementById('mileage-status-bar').innerHTML = `
+        <div onclick="openMileageModal('START')" class="flex-1 bg-slate-900/90 px-3 py-1.5 rounded-xl border ${startMile > 0 ? 'border-slate-700' : 'border-amber-400 animate-pulse'} cursor-pointer active:scale-95 transition">
+          <p class="text-[9px] text-slate-400">1. เลขไมล์ก่อนออกส่ง</p>
+          <p class="text-xs font-extrabold ${startMile > 0 ? 'text-white' : 'text-amber-400'}">${startMile > 0 ? startMile.toLocaleString() + ' กม.' : '⚠️ กดลงไมล์เริ่ม'}</p>
+        </div>
+        <i data-lucide="arrow-right" class="w-4 h-4 text-slate-500 shrink-0"></i>
+        <div onclick="openMileageModal('END')" class="flex-1 bg-slate-900/90 px-3 py-1.5 rounded-xl border ${endMile > 0 ? 'border-emerald-500/60' : 'border-slate-700'} cursor-pointer active:scale-95 transition">
+          <p class="text-[9px] text-slate-400">2. ไมล์จบ ${dist > 0 ? `(วิ่ง ${dist} กม.)` : ''}</p>
+          <p class="text-xs font-extrabold ${endMile > 0 ? 'text-emerald-400' : 'text-blue-400'}">${endMile > 0 ? endMile.toLocaleString() + ' กม.' : '🏁 กดลงไมล์จบ'}</p>
+        </div>
+      `;
+
+      const soldByProd = {};
+      const custSalesMap = {};
+      const walkInKeys = [];
+      let cashSales = 0, transferSales = 0, creditSales = 0;
+      const creditBills = [];
+
+      routeSales.forEach(s => {
+        if (s.PaymentStatus === 'Cancelled' || s.PaymentStatus === 'ยกเลิก') return;
+        const amt = parseFloat(s.TotalAmount) || 0;
+        const pType = String(s.PaymentType || '');
+        if (pType.includes('เครดิต') || pType.includes('บิลเชื่อ') || pType.includes('ค้างชำระ')) {
+          creditSales += amt;
+          creditBills.push(s);
+        } else if (pType.includes('โอน')) {
+          transferSales += amt;
+        } else {
+          cashSales += amt;
+        }
+
+        const rawCid = String(s.CustomerID || 'WALK-IN').trim();
+        const isWalkInSale = (rawCid === 'WALK-IN' || rawCid === '');
+        const rawCName = isWalkInSale
+          ? normalizeDrvWalkInName_(s.CustomerName)
+          : String(s.CustomerName || 'ลูกค้าขาจรทั่วไป').trim();
+        const groupKey = isWalkInSale ? `WALK-IN::${rawCName}` : rawCid;
+
+        if (!custSalesMap[groupKey]) {
+          custSalesMap[groupKey] = {
+            CustomerID: groupKey,
+            RawCustomerID: rawCid,
+            CustomerName: rawCName,
+            IsWalkIn: isWalkInSale,
+            count: 0,
+            totalAmt: 0,
+            cashAmt: 0,
+            trfAmt: 0,
+            crdAmt: 0,
+            totalQty: 0,
+            lastTime: String(s.SaleDate || '').slice(11, 16),
+            summaries: [],
+            bills: []
+          };
+          if (isWalkInSale) walkInKeys.push(groupKey);
+        }
+        custSalesMap[groupKey].count++;
+        custSalesMap[groupKey].totalAmt += amt;
+        custSalesMap[groupKey].totalQty += (parseFloat(s.TotalQty) || 0);
+        if (pType.includes('เครดิต') || pType.includes('บิลเชื่อ') || pType.includes('ค้างชำระ')) custSalesMap[groupKey].crdAmt += amt;
+        else if (pType.includes('โอน')) custSalesMap[groupKey].trfAmt += amt;
+        else custSalesMap[groupKey].cashAmt += amt;
+
+        if (s.ItemSummary) custSalesMap[groupKey].summaries.push(`${s.ItemSummary} [${s.PaymentType}]`);
+
+        custSalesMap[groupKey].bills.push({
+          SaleID: s.SaleID,
+          SaleTime: String(s.SaleDate || '').slice(11, 16),
+          SaleDate: String(s.SaleDate || '').slice(0, 16),
+          CustomerName: rawCName,
+          ItemSummary: s.ItemSummary || '-',
+          PaymentType: s.PaymentType || 'เงินสด',
+          TotalQty: parseFloat(s.TotalQty) || 0,
+          TotalAmount: amt
+        });
+
+        (s.Items || []).forEach(item => {
+          soldByProd[item.ProductID] = (soldByProd[item.ProductID] || 0) + (parseFloat(item.Quantity) || 0);
+        });
+      });
+      DRV.customerSalesMap = custSalesMap;
+      DRV.walkInGroupKeys = walkInKeys;
+
+      const transferByProd = {};
+      const transferNameByProd = {};
+      transfers.forEach(t => {
+        const tQty = parseFloat(t.Quantity) || 0;
+        const pid = String(t.ProductID);
+        if (t.ProductName) transferNameByProd[pid] = t.ProductName;
+        if (String(t.ToDispatchID) === String(dsp.DispatchID)) transferByProd[pid] = (transferByProd[pid] || 0) + tQty;
+        else if (String(t.FromDispatchID) === String(dsp.DispatchID)) transferByProd[pid] = (transferByProd[pid] || 0) - tQty;
+      });
+
+      let loadedItemsMap = {};
+      try {
+        const parsed = JSON.parse(dsp.LoadDetails || '[]');
+        if (Array.isArray(parsed)) parsed.forEach(ld => loadedItemsMap[String(ld.id)] = { name: ld.name, qty: parseFloat(ld.qty) || 0 });
+      } catch (e) {}
+
+      const allProductIds = new Set([...Object.keys(loadedItemsMap), ...Object.keys(transferByProd), ...Object.keys(soldByProd)]);
+      const truckInv = [];
+      let totalRemainQty = 0;
+
+      allProductIds.forEach(pid => {
+        if (!pid || pid === 'FEE' || pid === 'DISCOUNT' || pid === 'AR-MANUAL') return;
+        const masterProd = allProds.find(p => String(p.ProductID) === String(pid)) || {
+          ProductID: pid,
+          ProductName: (loadedItemsMap[pid]?.name || transferNameByProd[pid] || pid),
+          DefaultPrice: 0,
+          Unit: 'กระสอบ'
+        };
+        const lQty = loadedItemsMap[pid] ? loadedItemsMap[pid].qty : 0;
+        const trfNet = transferByProd[pid] || 0;
+        const sQty = soldByProd[pid] || 0;
+        const effectiveLoaded = (loadedItemsMap[pid] !== undefined && lQty > 0) ? lQty : Math.max(0, trfNet);
+        const rQty = effectiveLoaded - sQty;
+        if (effectiveLoaded <= 0 && rQty <= 0 && sQty <= 0) return;
+
+        totalRemainQty += Math.max(0, rQty);
+        truckInv.push({
+          ProductID: masterProd.ProductID,
+          ProductName: masterProd.ProductName,
+          DefaultPrice: parseFloat(masterProd.DefaultPrice) || 0,
+          Unit: masterProd.Unit || 'กระสอบ',
+          loadedQty: effectiveLoaded,
+          soldQty: sQty,
+          remainQty: rQty
+        });
+      });
+      DRV.truckInventory = truckInv;
+
+      let cashFuelExpense = 0;
+      fuelLogs.forEach(f => {
+        if (String(f.PaidBy || '').includes('เงินสด') || String(f.PaidBy || '').includes('หัก')) {
+          cashFuelExpense += (parseFloat(f.TotalCost) || 0);
+        }
+      });
+
+      let collectedDebtCash = 0, collectedDebtTransfer = 0;
+      (DRV.data.todayDebtPayments || []).forEach(p => {
+        const pAmt = parseFloat(p.AmountPaid) || 0;
+        if (String(p.PaymentMethod || '').includes('โอน')) collectedDebtTransfer += pAmt;
+        else collectedDebtCash += pAmt;
+      });
+
+      const netCashToSubmit = cashSales + collectedDebtCash - cashFuelExpense;
+      DRV.finance = {
+        cashSales, transferSales, creditSales,
+        totalSales: cashSales + transferSales + creditSales,
+        collectedDebtCash, collectedDebtTransfer,
+        cashFuelExpense, netCashToSubmit, creditBills
+      };
+
+      const myCustomers = DRV.data.customers || [];
+      const deliveredCount = myCustomers.filter(c => custSalesMap[c.CustomerID]).length;
+      const walkInCount = walkInKeys.length;
+
+      document.getElementById('stat-remain-qty').innerText = `${totalRemainQty} หน่วย`;
+      document.getElementById('stat-shop-progress').innerText = `${deliveredCount}/${myCustomers.length} ร้าน${walkInCount > 0 ? ` (+${walkInCount} ขาจร)` : ''}`;
+      document.getElementById('stat-cash-net').innerText = `฿${netCashToSubmit.toLocaleString()}`;
+
+      document.getElementById('truck-stock-pills').innerHTML = truckInv.length === 0
+        ? `<div class="col-span-2 bg-slate-800 text-slate-400 p-2 rounded-xl text-xs text-center">ไม่มีรายการน้ำแข็งบนรถ</div>`
+        : truckInv.map(item => `
+          <div class="bg-slate-800/95 px-3 py-2 rounded-2xl border ${item.remainQty <= 0 ? 'border-rose-500/50 opacity-75' : 'border-slate-700'} flex justify-between items-center">
+            <div class="truncate pr-1">
+              <p class="text-xs font-extrabold text-white truncate">${item.ProductName}</p>
+              <p class="text-[10px] text-slate-400">สุทธิบนรถ ${item.loadedQty} | ขาย ${item.soldQty}</p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="text-base font-black ${item.remainQty <= 0 ? 'text-rose-400' : 'text-amber-400'} block leading-none">${item.remainQty}</span>
+              <span class="text-[9px] text-slate-400">${item.Unit}</span>
+            </div>
+          </div>
+        `).join('');
+    }
+
+    function switchTab(tab) {
+      DRV.currentTab = tab;
+      ['sale', 'shops', 'transfer', 'summary'].forEach(t => {
+        const btn = document.getElementById('nav-' + t);
+        if (btn) btn.classList.toggle('active-tab', t === tab);
+      });
+
+      if (!DRV.myDispatch) {
+        document.getElementById('tab-content').innerHTML = `
+          <div class="bg-white p-8 rounded-3xl border-2 border-emerald-400 shadow-md text-center space-y-3 mt-2">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">
+              <i data-lucide="check-circle-2" class="w-10 h-10"></i>
+            </div>
+            <h3 class="text-lg font-black text-slate-800">ปิดกะส่งมอบงานเรียบร้อยแล้ว</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">เสมียนหน้าลานได้ทำการเคลียร์บิลและปิดกะสายส่งของคุณแล้วค่ะ<br>ระบบจะเปิดให้ทำรายการอีกครั้งเมื่อเสมียนกด <b>"ปล่อยรถกะเช้า"</b> ในรอบถัดไป</p>
+            <button onclick="reloadDriverData()" class="mt-2 px-5 py-3 bg-blue-600 text-white rounded-xl font-extrabold text-xs inline-flex items-center gap-1.5 shadow-md active:scale-95">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i> กดเช็กสถานะปล่อยรถรอบใหม่
+            </button>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      if (tab === 'sale') renderSaleTab();
+      if (tab === 'shops') renderShopsCheckTab();
+      if (tab === 'transfer') renderTransferTab();
+      if (tab === 'summary') renderSummaryTab();
+      lucide.createIcons();
+    }
+
+    // ==========================================
+    // 🛒 TAB 1: ส่งน้ำแข็ง
+    // ==========================================
+    function normalizeDrvWalkInName_(rawName) {
+      let s = String(rawName || '').replace(/🚶/g, '').trim();
+      s = s.replace(/^(ขาจร\s*:\s*|ขาจร\s+)/i, '').trim();
+      s = s.replace(/\s+/g, ' ');
+      if (!s || s === 'ลูกค้าขาจรทั่วไป' || s === 'ลูกค้าขาจร') return 'ลูกค้าขาจรทั่วไป';
+      return 'ขาจร: ' + s;
+    }
+
+    function captureWalkInInputBeforeRender_() {
+      const inp = document.getElementById('drv-walkin-name');
+      if (inp) {
+        DRV.walkInCustomName = inp.value;
+      }
+    }
+
+    function isWalkInSelection_(cid) {
+      return cid === 'WALK-IN' || String(cid || '').startsWith('WALK-IN::');
+    }
+
+    function getCurrentWalkInLookupKey_() {
+      if (!isWalkInSelection_(DRV.selectedCustomerId)) return '';
+      const custom = (document.getElementById('drv-walkin-name')?.value || DRV.walkInCustomName || '').trim();
+      if (!custom && String(DRV.selectedCustomerId).startsWith('WALK-IN::')) {
+        return DRV.selectedCustomerId;
+      }
+      const fullName = normalizeDrvWalkInName_(custom);
+      return `WALK-IN::${fullName}`;
+    }
+
+    function getDriverPrice(prod) {
+      const pid = String(prod.ProductID);
+      const defaultPrice = parseFloat(prod.DefaultPrice) || 0;
+
+      if (isWalkInSelection_(DRV.selectedCustomerId)) {
+        if (!DRV.walkInCustomPrices) DRV.walkInCustomPrices = {};
+        if (DRV.walkInCustomPrices[pid] !== undefined && DRV.walkInCustomPrices[pid] !== '') {
+          return parseFloat(DRV.walkInCustomPrices[pid]) || 0;
+        }
+        if (DRV.walkInPromo3For100) {
+          return Math.max(35, defaultPrice);
+        }
+        if (DRV.walkInPriceDelta) {
+          return Math.max(5, defaultPrice + (parseFloat(DRV.walkInPriceDelta) || 0));
+        }
+        return defaultPrice;
+      }
+
+      if (DRV.selectedCustomerId) {
+        const sp = (DRV.data.specialPrices || []).find(s => String(s.CustomerID) === String(DRV.selectedCustomerId) && String(s.ProductID) === pid);
+        if (sp) return parseFloat(sp.SpecialPrice);
+
+        const custPromo = (DRV.data.promoMap || {})[DRV.selectedCustomerId];
+        if (custPromo) {
+          const eligStr = String(custPromo.EligibleProducts || 'ALL');
+          const isElig = (eligStr === 'ALL' || eligStr.split(',').map(x => x.trim()).includes(pid));
+          if (isElig) return Math.max(35, defaultPrice);
+        }
+      }
+      return defaultPrice;
+    }
+
+    function setWalkInPresetMode(mode) {
+      captureWalkInInputBeforeRender_();
+      DRV.walkInPresetMode = mode;
+      DRV.walkInCustomPrices = {};
+      if (mode === 'NORMAL') {
+        DRV.walkInPriceDelta = 0;
+        DRV.walkInPromo3For100 = false;
+      } else if (mode === 'PROMO_3_100') {
+        DRV.walkInPriceDelta = 0;
+        DRV.walkInPromo3For100 = true;
+      } else if (mode === 'PLUS_5') {
+        DRV.walkInPriceDelta = 5;
+        DRV.walkInPromo3For100 = false;
+      } else if (mode === 'MINUS_5') {
+        DRV.walkInPriceDelta = -5;
+        DRV.walkInPromo3For100 = false;
+      }
+      renderSaleTab();
+      lucide.createIcons();
+    }
+
+    function setWalkInItemPrice(pid, val) {
+      captureWalkInInputBeforeRender_();
+      if (!DRV.walkInCustomPrices) DRV.walkInCustomPrices = {};
+      const num = parseFloat(val);
+      if (isNaN(num) || num < 0) {
+        delete DRV.walkInCustomPrices[pid];
+      } else {
+        DRV.walkInCustomPrices[pid] = num;
+      }
+      renderSaleTab();
+      lucide.createIcons();
+    }
+
+    function adjWalkInItemPrice(pid, delta) {
+      captureWalkInInputBeforeRender_();
+      const prod = DRV.truckInventory.find(x => String(x.ProductID) === String(pid));
+      if (!prod) return;
+      if (!DRV.walkInCustomPrices) DRV.walkInCustomPrices = {};
+      const curPrice = getDriverPrice(prod);
+      const nextPrice = Math.max(5, curPrice + delta);
+      DRV.walkInCustomPrices[pid] = nextPrice;
+      renderSaleTab();
+      lucide.createIcons();
+    }
+
+    function calcDriverCartPricing() {
+      const promoMap = DRV.data.promoMap || {};
+      const isWalkIn = isWalkInSelection_(DRV.selectedCustomerId);
+      const custPromo = (!isWalkIn && DRV.selectedCustomerId)
+        ? promoMap[DRV.selectedCustomerId]
+        : (isWalkIn && DRV.walkInPromo3For100 ? { EligibleProducts: 'ALL' } : null);
+
+      const eligStr = custPromo ? String(custPromo.EligibleProducts || 'ALL') : '';
+      const eligSet = (eligStr && eligStr !== 'ALL') ? new Set(eligStr.split(',').map(x => x.trim())) : null;
+
+      let rawSubTotal = 0;
+      let eligibleUnitPrices = [];
+
+      DRV.truckInventory.forEach(p => {
+        const qty = DRV.cart[p.ProductID] || 0;
+        if (qty <= 0) return;
+        const price = getDriverPrice(p);
+        rawSubTotal += qty * price;
+        if (custPromo && (!eligSet || eligSet.has(String(p.ProductID)))) {
+          for (let i = 0; i < qty; i++) eligibleUnitPrices.push(price);
+        }
+      });
+
+      const totalEligibleQty = eligibleUnitPrices.length;
+      let bundleCount = 0;
+      let discountAmt = 0;
+
+      if (custPromo && totalEligibleQty >= 3) {
+        eligibleUnitPrices.sort((a, b) => b - a);
+        bundleCount = Math.floor(totalEligibleQty / 3);
+        let normalPriceOfBundledItems = 0;
+        for (let j = 0; j < bundleCount * 3; j++) {
+          normalPriceOfBundledItems += eligibleUnitPrices[j];
+        }
+        if (normalPriceOfBundledItems > bundleCount * 100) {
+          discountAmt = normalPriceOfBundledItems - (bundleCount * 100);
+        }
+      }
+
+      const remMod = totalEligibleQty % 3;
+      const needMore = remMod === 0 ? (totalEligibleQty > 0 ? 0 : 3) : (3 - remMod);
+
+      return {
+        hasPromo: !!custPromo,
+        totalEligibleQty,
+        bundleCount,
+        needMore,
+        rawSubTotal,
+        discountAmt,
+        netTotal: rawSubTotal - discountAmt
+      };
+    }
+
+    function renderSaleTab() {
+      if (!DRV.myDispatch) return;
+
+      const allRouteCusts = DRV.data.customers || [];
+      const pendingCusts = allRouteCusts.filter(c => !DRV.customerSalesMap[c.CustomerID] && !DRV.skippedShopsMap[c.CustomerID]);
+      const skippedCusts = allRouteCusts.filter(c => !DRV.customerSalesMap[c.CustomerID] && DRV.skippedShopsMap[c.CustomerID]);
+      const deliveredCusts = allRouteCusts.filter(c => DRV.customerSalesMap[c.CustomerID]);
+      const debtMap = DRV.data.customerDebtMap || {};
+
+      const nextQueueShop = pendingCusts.length > 0 ? pendingCusts[0] : null;
+      const nextQueueBanner = (nextQueueShop && DRV.selectedCustomerId !== nextQueueShop.CustomerID) ? `
+        <div class="mb-2.5 p-2.5 bg-indigo-600 text-white rounded-2xl shadow-md flex justify-between items-center gap-2">
+          <div onclick="onSelectDrvCustomer('${esc(nextQueueShop.CustomerID)}')" class="flex items-center gap-2 truncate flex-1 cursor-pointer active:scale-95">
+            <span class="bg-amber-400 text-slate-900 font-black text-[11px] px-2 py-0.5 rounded-lg shrink-0">คิวถัดไป #${nextQueueShop.SequenceNo || 1}</span>
+            <span class="font-extrabold text-sm truncate">${nextQueueShop.CustomerName}</span>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="onSelectDrvCustomer('${esc(nextQueueShop.CustomerID)}')" class="text-[11px] font-extrabold bg-white text-indigo-800 px-2.5 py-1 rounded-xl active:scale-95">เลือก ➔</button>
+            <button onclick="openSkipShopModal('${esc(nextQueueShop.CustomerID)}', '${esc(nextQueueShop.CustomerName)}')" class="text-[11px] font-extrabold bg-rose-500 text-white px-2 py-1 rounded-xl active:scale-95" title="ข้ามร้านนี้">ข้าม</button>
+          </div>
+        </div>
+      ` : '';
+
+      const walkInOptionSet = new Set(DRV.walkInGroupKeys || []);
+      Object.keys(debtMap).forEach(dk => {
+        if (String(dk).startsWith('WALK-IN::')) walkInOptionSet.add(dk);
+      });
+
+      const walkInOptsHTML = Array.from(walkInOptionSet).map(wKey => {
+        const wSale = DRV.customerSalesMap[wKey];
+        const wDebt = debtMap[wKey];
+        const wName = wSale ? wSale.CustomerName : (wDebt ? wDebt.CustomerName : wKey.replace(/^WALK-IN::/, ''));
+        const subLabel = [
+          wSale ? `ส่งวันนี้ ${wSale.count} บิล` : '',
+          wDebt ? `🚨 ค้าง ฿${wDebt.totalDebt.toLocaleString()}` : ''
+        ].filter(Boolean).join(' | ');
+        return `<option value="${esc(wKey)}" ${DRV.selectedCustomerId === wKey ? 'selected' : ''} class="bg-white text-indigo-700 font-bold">🚶 ${wName} (${subLabel})</option>`;
+      });
+
+      const custOptions = [
+        `<option value="" class="bg-white text-slate-900">-- เลือกร้านค้าตามลำดับคิว (${allRouteCusts.length} ร้าน) --</option>`,
+        `<optgroup label="🚶 ลูกค้าขาจร / งานบุญนอกสาย" class="bg-blue-50 text-blue-800">`,
+        `<option value="WALK-IN" ${DRV.selectedCustomerId === 'WALK-IN' ? 'selected' : ''} class="bg-white text-blue-700 font-extrabold">➕ เพิ่มขาจรรายใหม่ (พิมพ์ชื่อร้าน/งานบุญเอง)</option>`,
+        ...walkInOptsHTML,
+        `</optgroup>`,
+        pendingCusts.length > 0 ? `<optgroup label="⏳ รอส่งตามลำดับคิว (${pendingCusts.length} ร้าน)" class="bg-slate-100 text-amber-800">` + pendingCusts.map((c, idx) => `<option value="${c.CustomerID}" ${c.CustomerID === DRV.selectedCustomerId ? 'selected' : ''} class="bg-white text-slate-900">⏳ #${c.SequenceNo || (idx + 1)} ${c.CustomerName}</option>`).join('') + `</optgroup>` : '',
+        skippedCusts.length > 0 ? `<optgroup label="⏭️ ข้ามชั่วคราว (${skippedCusts.length} ร้าน)" class="bg-slate-100 text-rose-800">` + skippedCusts.map(c => `<option value="${c.CustomerID}" ${c.CustomerID === DRV.selectedCustomerId ? 'selected' : ''} class="bg-white text-slate-900">⏭️ #${c.SequenceNo || '-'} ${c.CustomerName} (${DRV.skippedShopsMap[c.CustomerID]})</option>`).join('') + `</optgroup>` : '',
+        deliveredCusts.length > 0 ? `<optgroup label="✅ ส่งแล้ววันนี้ (${deliveredCusts.length} ร้าน)" class="bg-slate-100 text-emerald-800">` + deliveredCusts.map(c => `<option value="${c.CustomerID}" ${c.CustomerID === DRV.selectedCustomerId ? 'selected' : ''} class="bg-white text-slate-900">✅ #${c.SequenceNo || '-'} ${c.CustomerName}</option>`).join('') + `</optgroup>` : ''
+      ].join('');
+
+      const isWalkIn = isWalkInSelection_(DRV.selectedCustomerId);
+      const curPreset = DRV.walkInPresetMode || 'NORMAL';
+
+      const walkInInputBox = isWalkIn ? `
+        <div class="mt-2.5 p-3 bg-blue-50/90 border-2 border-blue-400 rounded-2xl space-y-2.5">
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-xs font-extrabold text-blue-950">🚶 1.1 ชื่อร้าน / ชื่องานขาจร (เว้นว่าง = ขาจรทั่วไป):</label>
+              ${DRV.walkInCustomName ? `<button type="button" onclick="DRV.selectedCustomerId='WALK-IN'; DRV.walkInCustomName=''; renderSaleTab();" class="text-[10px] font-extrabold text-rose-600 underline">ล้างชื่อเพื่อพิมพ์งานใหม่</button>` : ''}
+            </div>
+            <input type="text" id="drv-walkin-name" value="${esc(DRV.walkInCustomName || '')}" oninput="DRV.walkInCustomName = this.value" placeholder="เช่น งานศพวัดเหนือ, ร้านป้าแดง (ถ้าขายสดเว้นว่างได้)..." class="w-full p-2.5 bg-white border-2 border-blue-300 rounded-xl font-extrabold text-sm text-slate-900 outline-none focus:border-blue-600">
+          </div>
+
+          <div>
+            <label class="text-xs font-extrabold text-blue-950 block mb-1">🏷️ 1.2 เลือกเรตราคาขาจร (หรือแก้ราคาที่การ์ดสินค้าด้านล่าง):</label>
+            <div class="grid grid-cols-2 gap-1.5">
+              <button type="button" onclick="setWalkInPresetMode('NORMAL')" class="py-2 px-2 rounded-xl font-extrabold text-[11px] border-2 transition ${curPreset === 'NORMAL' ? 'bg-blue-600 text-white border-blue-600 shadow-xs' : 'bg-white text-slate-700 border-slate-200'}">
+                🏷️ ราคาปกติหน้าลาน
+              </button>
+              <button type="button" onclick="setWalkInPresetMode('PROMO_3_100')" class="py-2 px-2 rounded-xl font-extrabold text-[11px] border-2 transition ${curPreset === 'PROMO_3_100' ? 'bg-purple-600 text-white border-purple-600 shadow-xs' : 'bg-white text-purple-800 border-purple-200'}">
+                🎁 โปรคละ 3 ชิ้น 100.- (เริ่ม 35฿)
+              </button>
+              <button type="button" onclick="setWalkInPresetMode('MINUS_5')" class="py-2 px-2 rounded-xl font-extrabold text-[11px] border-2 transition ${curPreset === 'MINUS_5' ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs' : 'bg-white text-emerald-800 border-emerald-200'}">
+                📉 ลดส่งเหมา (-5฿/ถุง)
+              </button>
+              <button type="button" onclick="setWalkInPresetMode('PLUS_5')" class="py-2 px-2 rounded-xl font-extrabold text-[11px] border-2 transition ${curPreset === 'PLUS_5' ? 'bg-amber-500 text-white border-amber-500 shadow-xs' : 'bg-white text-amber-800 border-amber-200'}">
+                🚚 บวกส่งไกล (+5฿/ถุง)
+              </button>
+            </div>
+          </div>
+        </div>
+      ` : '';
+
+      const lookupKey = isWalkIn ? getCurrentWalkInLookupKey_() : DRV.selectedCustomerId;
+      const debtInfo = lookupKey ? debtMap[lookupKey] : null;
+      const debtAlertBar = debtInfo ? `
+        <div class="mt-2 bg-rose-50 border-2 border-rose-300 rounded-2xl p-3 flex justify-between items-center">
+          <div>
+            <p class="text-xs font-extrabold text-rose-800">🚨 มียอดค้างชำระ ฿${debtInfo.totalDebt.toLocaleString()} (${debtInfo.billCount} บิล)</p>
+          </div>
+          <button onclick="openDebtCollectModal('${esc(lookupKey)}')" class="bg-rose-600 text-white px-3 py-1.5 rounded-xl text-xs font-extrabold shadow-xs active:scale-95">เก็บหนี้ทันที</button>
+        </div>
+      ` : '';
+
+      const selectedStoreSaleInfo = lookupKey ? DRV.customerSalesMap[lookupKey] : null;
+      const storeBillsAlertBar = selectedStoreSaleInfo ? `
+        <div class="mt-2 bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-2.5 flex justify-between items-center text-xs">
+          <div class="truncate pr-2">
+            <span class="font-extrabold text-emerald-900">✅ วันนี้ส่ง "${selectedStoreSaleInfo.CustomerName}" แล้ว ${selectedStoreSaleInfo.count} บิล (฿${selectedStoreSaleInfo.totalAmt.toLocaleString()})</span>
+            <p class="text-[11px] text-emerald-700 truncate">${selectedStoreSaleInfo.summaries.join(' | ')}</p>
+          </div>
+          <button onclick="openStoreBillsModal('${esc(lookupKey)}')" class="bg-white border border-emerald-400 text-emerald-800 px-2.5 py-1.5 rounded-xl font-extrabold text-[11px] shrink-0 active:scale-95">
+            ดูบิล/ยกเลิก
+          </button>
+        </div>
+      ` : '';
+
+      const pricing = calcDriverCartPricing();
+      let promoBarHTML = '';
+      if (pricing.hasPromo) {
+        let statusSubText = '';
+        if (pricing.bundleCount > 0 && pricing.needMore === 0) {
+          statusSubText = `<span class="text-emerald-700 font-extrabold">(ได้โปร ${pricing.bundleCount} ชุด ลด -฿${pricing.discountAmt}!)</span>`;
+        } else if (pricing.bundleCount > 0) {
+          statusSubText = `<span class="text-purple-700 font-bold">(ได้ ${pricing.bundleCount} ชุด ลด ฿${pricing.discountAmt} | อีก ${pricing.needMore} ชิ้นได้ชุดถัดไป)</span>`;
+        } else {
+          statusSubText = `<span class="text-purple-600 font-medium">(คละอีก ${pricing.needMore} ชิ้นได้โปร)</span>`;
+        }
+
+        promoBarHTML = `
+          <div class="mt-2 bg-purple-50/80 border-2 border-purple-200 rounded-2xl p-3 flex justify-between items-center text-xs">
+            <div class="flex items-center gap-1.5 flex-wrap pr-2">
+              <span class="font-extrabold text-purple-950">🎁 โปรคละ 3 ชิ้น 100.-</span>
+              ${statusSubText}
+            </div>
+            <span class="bg-purple-600 text-white px-3 py-1 rounded-full font-extrabold text-[11px] shrink-0">คละ ${pricing.totalEligibleQty} ชิ้น</span>
+          </div>
+        `;
+      }
+
+      const prodCardsHTML = DRV.truckInventory.map(p => {
+        const price = getDriverPrice(p);
+        const defaultPrice = parseFloat(p.DefaultPrice) || 0;
+        const isCustomPrice = (price !== defaultPrice);
+        const qty = DRV.cart[p.ProductID] || 0;
+        const remainAfterCart = p.remainQty - qty;
+
+        const priceControlHTML = isWalkIn ? `
+          <div class="flex items-center gap-1.5 mt-1.5 bg-amber-50/90 p-1.5 rounded-xl border border-amber-300">
+            <span class="text-[10px] font-extrabold text-amber-900 pl-1">ราคาขาจร:</span>
+            <button type="button" onclick="adjWalkInItemPrice('${p.ProductID}', -5)" class="px-2 py-1 bg-white border border-amber-300 rounded-lg font-black text-xs text-rose-600 active:scale-90">-5</button>
+            <div class="relative flex items-center">
+              <span class="absolute left-2 text-xs font-extrabold text-amber-700">฿</span>
+              <input type="number" value="${price}" onchange="setWalkInItemPrice('${p.ProductID}', this.value)" class="w-20 pl-5 pr-1 py-1 text-center font-black text-sm text-amber-900 bg-white border-2 border-amber-400 rounded-lg outline-none focus:border-blue-600">
+            </div>
+            <button type="button" onclick="adjWalkInItemPrice('${p.ProductID}', 5)" class="px-2 py-1 bg-white border border-amber-300 rounded-lg font-black text-xs text-emerald-700 active:scale-90">+5</button>
+            <span class="text-[10px] text-slate-500">/${p.Unit}</span>
+          </div>
+        ` : `<p class="text-xs font-extrabold ${isCustomPrice ? 'text-amber-600' : 'text-blue-600'}">฿${price} / ${p.Unit} ${isCustomPrice ? `<span class="text-[10px] text-slate-400 line-through font-normal ml-1">(ปกติ ฿${defaultPrice})</span>` : ''}</p>`;
+
+        return `
+          <div class="bg-white p-4 rounded-2xl border-2 ${qty > 0 ? 'border-blue-600 bg-blue-50/20' : 'border-slate-200'} shadow-xs space-y-3">
+            <div class="flex justify-between items-start gap-2">
+              <div class="flex-1">
+                <h4 class="font-extrabold text-slate-800 text-base">${p.ProductName}</h4>
+                ${priceControlHTML}
+              </div>
+              <span class="text-xs font-extrabold px-3 py-1 rounded-full shrink-0 ${remainAfterCart <= 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'}">เหลือ ${remainAfterCart} ${p.Unit}</span>
+            </div>
+            <div class="flex items-center justify-between gap-2 pt-1">
+              <div class="flex gap-1.5">
+                <button onclick="adjDrvCart('${p.ProductID}', 5)" class="px-3 py-2.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 font-extrabold text-xs active:scale-95">+5</button>
+                <button onclick="adjDrvCart('${p.ProductID}', 10)" class="px-3 py-2.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 font-extrabold text-xs active:scale-95">+10</button>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button onclick="adjDrvCart('${p.ProductID}', -1)" class="w-12 h-12 rounded-xl bg-slate-100 text-slate-800 font-black text-2xl flex items-center justify-center border border-slate-200 active:scale-90">-</button>
+                <input type="number" value="${qty}" onchange="setDrvCart('${p.ProductID}', this.value)" class="w-16 h-12 text-center font-black text-xl border-2 border-slate-200 rounded-xl bg-white outline-none focus:border-blue-600">
+                <button onclick="adjDrvCart('${p.ProductID}', 1)" class="w-12 h-12 rounded-xl bg-blue-600 text-white font-black text-2xl flex items-center justify-center shadow-md active:scale-90">+</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const lastSale = (DRV.data.todayRouteSales || [])[0];
+      const lastSaleBox = lastSale ? `
+        <div class="bg-slate-200/70 p-3 rounded-2xl border border-slate-300 flex justify-between items-center text-xs">
+          <div class="truncate pr-2">
+            <span class="text-[10px] font-bold text-slate-500">เพิ่งบันทึกล่าสุด (${String(lastSale.SaleDate).slice(11,16)} น. | ${lastSale.SaleID}):</span>
+            <p class="font-extrabold text-slate-800 truncate">${lastSale.CustomerName} — ${lastSale.ItemSummary} = ฿${Number(lastSale.TotalAmount).toLocaleString()}</p>
+          </div>
+          <button onclick="openCancelDrvSaleModal('${lastSale.SaleID}')" class="px-3 py-2 bg-rose-100 text-rose-700 border border-rose-300 rounded-xl font-extrabold text-[11px] shrink-0 active:scale-95">❌ ยกเลิกบิล</button>
+        </div>
+      ` : '';
+
+      const selectedRegularCust = (!isWalkIn && DRV.selectedCustomerId)
+        ? allRouteCusts.find(c => String(c.CustomerID) === String(DRV.selectedCustomerId))
+        : null;
+
+      document.getElementById('tab-content').innerHTML = `
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+          ${nextQueueBanner}
+          <div class="flex justify-between items-center mb-2">
+            <label class="text-xs font-extrabold text-slate-700">1. เลือกร้านค้าที่ส่งน้ำแข็ง</label>
+            <div class="flex gap-1.5">
+              ${selectedRegularCust ? `
+                <button onclick="openSkipShopModal('${esc(selectedRegularCust.CustomerID)}', '${esc(selectedRegularCust.CustomerName)}')" class="px-2 py-1 rounded-xl font-extrabold text-[10px] bg-amber-50 text-amber-800 border border-amber-300 active:scale-95">
+                  ⏭️ ข้ามร้านนี้
+                </button>
+              ` : ''}
+              <button onclick="DRV.isReorderingShops=true; switchTab('shops');" class="px-2 py-1 rounded-xl font-extrabold text-[10px] bg-slate-100 text-slate-700 border border-slate-300 active:scale-95">
+                🔢 จัดคิวส่ง
+              </button>
+              <button onclick="selectWalkInQuick()" class="px-2.5 py-1 rounded-xl font-extrabold text-[11px] border transition active:scale-95 ${isWalkIn ? 'bg-blue-600 text-white border-blue-600 shadow-xs' : 'bg-blue-50 text-blue-700 border-blue-200'}">
+                🚶 + ขาจร
+              </button>
+            </div>
+          </div>
+          <select onchange="onSelectDrvCustomer(this.value)" class="w-full p-3.5 border-2 border-blue-600 rounded-2xl font-extrabold text-base bg-white text-slate-900 outline-none">${custOptions}</select>
+          ${walkInInputBox}
+          ${promoBarHTML}
+          ${storeBillsAlertBar}
+          ${debtAlertBar}
+        </div>
+
+        <div class="space-y-2.5">
+          <div class="flex justify-between items-center px-1">
+            <label class="text-xs font-extrabold text-slate-700">2. กดจำนวนน้ำแข็ง ${isWalkIn ? '<span class="text-amber-600">(ปรับราคาขาจรในกรอบสีเหลืองได้)</span>' : ''}</label>
+          </div>
+          ${prodCardsHTML}
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl shadow-md border border-slate-200 space-y-3">
+          <label class="text-xs font-extrabold text-slate-700 block">3. วิธีชำระเงิน</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="setDrvPayType('เงินสด')" class="py-3.5 rounded-xl font-extrabold text-xs border-2 ${DRV.payType === 'เงินสด' ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-200 text-slate-500'}">💵 เงินสด</button>
+            <button onclick="setDrvPayType('โอนเงิน')" class="py-3.5 rounded-xl font-extrabold text-xs border-2 ${DRV.payType === 'โอนเงิน' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'border-slate-200 text-slate-500'}">📱 โอนเงิน</button>
+            <button onclick="setDrvPayType('เครดิต (ลงบิลเชื่อ)')" class="py-3.5 rounded-xl font-extrabold text-xs border-2 ${DRV.payType.includes('เครดิต') ? 'border-amber-500 bg-amber-50 text-amber-900' : 'border-slate-200 text-slate-500'}">💳 ค้างชำระ</button>
+          </div>
+          <div class="bg-slate-900 text-white p-4 rounded-2xl space-y-1">
+            ${pricing.discountAmt > 0 ? `<div class="flex justify-between text-xs text-purple-300 font-bold"><span>🎁 หักส่วนลดโปรคละ 3 ชิ้น 100 (${pricing.bundleCount} ชุด):</span><span>-฿${pricing.discountAmt.toLocaleString()}</span></div>` : ''}
+            <div class="flex justify-between items-center">
+              <span class="text-sm font-bold">ยอดสุทธิ:</span>
+              <span class="text-3xl font-black text-emerald-400">฿${pricing.netTotal.toLocaleString()}</span>
+            </div>
+          </div>
+          <button onclick="submitDrvSale()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold rounded-2xl shadow-lg text-lg flex items-center justify-center gap-2 transition">
+            <i data-lucide="check-circle" class="w-6 h-6"></i> บันทึกบิลส่งน้ำแข็ง
+          </button>
+        </div>
+        ${lastSaleBox}
+      `;
+    }
+
+    function onSelectDrvCustomer(cid) {
+      DRV.selectedCustomerId = cid;
+      if (String(cid).startsWith('WALK-IN::')) {
+        const rawName = String(cid).replace(/^WALK-IN::/, '').replace(/^ขาจร\s*:\s*/i, '').trim();
+        DRV.walkInCustomName = rawName === 'ลูกค้าขาจรทั่วไป' ? '' : rawName;
+      } else if (cid === 'WALK-IN') {
+        DRV.walkInCustomName = '';
+      } else {
+        DRV.walkInCustomName = '';
+        DRV.walkInPresetMode = 'NORMAL';
+        DRV.walkInPriceDelta = 0;
+        DRV.walkInPromo3For100 = false;
+        DRV.walkInCustomPrices = {};
+      }
+      renderSaleTab();
+      lucide.createIcons();
+    }
+
+    function selectWalkInQuick() {
+      DRV.selectedCustomerId = 'WALK-IN';
+      DRV.walkInCustomName = '';
+      if (!DRV.walkInPresetMode) DRV.walkInPresetMode = 'NORMAL';
+      renderSaleTab();
+      lucide.createIcons();
+      setTimeout(() => document.getElementById('drv-walkin-name')?.focus(), 50);
+    }
+
+    function selectExistingWalkInGroup(groupKey) {
+      const info = DRV.customerSalesMap[groupKey] || (DRV.data.customerDebtMap || {})[groupKey];
+      DRV.selectedCustomerId = groupKey;
+      if (info) {
+        const clean = String(info.CustomerName || '').replace(/🚶/g, '').replace(/^ขาจร\s*:\s*/i, '').trim();
+        DRV.walkInCustomName = clean === 'ลูกค้าขาจรทั่วไป' ? '' : clean;
+      } else {
+        DRV.walkInCustomName = String(groupKey || '').replace(/^WALK-IN::/, '').replace(/^ขาจร\s*:\s*/i, '').trim();
+      }
+      switchTab('sale');
+    }
+
+    function adjDrvCart(pid, delta) {
+      captureWalkInInputBeforeRender_();
+      const item = DRV.truckInventory.find(x => x.ProductID === pid);
+      if (!item) return;
+      const next = Math.max(0, (DRV.cart[pid] || 0) + delta);
+      if (delta > 0 && next > item.remainQty) return toast(`บนรถเหลือเพียง ${item.remainQty} ${item.Unit}`, 'error');
+      if (next === 0) delete DRV.cart[pid];
+      else DRV.cart[pid] = next;
+      renderSaleTab();
+      lucide.createIcons();
+    }
+
+    function setDrvCart(pid, val) {
+      captureWalkInInputBeforeRender_();
+      const item = DRV.truckInventory.find(x => x.ProductID === pid);
+      if (!item) return;
+      let q = Math.max(0, parseInt(val) || 0);
+      if (q > item.remainQty) {
+        toast(`บนรถเหลือเพียง ${item.remainQty} ${item.Unit}`, 'error');
+        q = item.remainQty;
+      }
+      if (q === 0) delete DRV.cart[pid];
+      else DRV.cart[pid] = q;
+      renderSaleTab();
+      lucide.createIcons();
+    }
+
+    function setDrvPayType(type) {
+      captureWalkInInputBeforeRender_();
+      DRV.payType = type;
+      renderSaleTab();
+      lucide.createIcons();
+    }
+
+    async function submitDrvSale() {
+      captureWalkInInputBeforeRender_();
+      if (!DRV.selectedCustomerId) return toast('กรุณาเลือกร้านค้า หรือกดปุ่ม "🚶 + ขาจร" ก่อนบันทึกบิลค่ะ', 'error');
+
+      const isWalkIn = isWalkInSelection_(DRV.selectedCustomerId);
+      let customWalkIn = (document.getElementById('drv-walkin-name')?.value || DRV.walkInCustomName || '').trim();
+      if (!customWalkIn && String(DRV.selectedCustomerId).startsWith('WALK-IN::')) {
+        customWalkIn = String(DRV.selectedCustomerId).replace(/^WALK-IN::/, '').replace(/^ขาจร\s*:\s*/i, '').trim();
+        if (customWalkIn === 'ลูกค้าขาจรทั่วไป') customWalkIn = '';
+      }
+
+      if (isWalkIn && DRV.payType.includes('เครดิต') && !customWalkIn) {
+        document.getElementById('drv-walkin-name')?.focus();
+        return toast('กรณีขาจร "ค้างชำระ" กรุณาพิมพ์ชื่อร้าน/ชื่องานและเบอร์โทรในช่องขาจรก่อนค่ะ!', 'error');
+      }
+
+      const items = [];
+      Object.keys(DRV.cart).forEach(pid => {
+        const p = DRV.truckInventory.find(x => x.ProductID === pid);
+        if (p && DRV.cart[pid] > 0) {
+          const soldPrice = getDriverPrice(p);
+          const defaultPrice = parseFloat(p.DefaultPrice) || 0;
+          const auditProdName = (isWalkIn && soldPrice !== defaultPrice)
+            ? `${p.ProductName} (@฿${soldPrice})`
+            : p.ProductName;
+
+          items.push({
+            ProductID: p.ProductID,
+            ProductName: auditProdName,
+            UnitPrice: soldPrice,
+            Quantity: DRV.cart[pid],
+            Unit: p.Unit
+          });
+        }
+      });
+      if (!items.length) return toast('กรุณากดจำนวนน้ำแข็งอย่างน้อย 1 รายการ', 'error');
+
+      const pricing = calcDriverCartPricing();
+      if (pricing.discountAmt > 0) {
+        items.push({ ProductID: 'DISCOUNT', ProductName: `โปร 3 ชิ้น 100 (${pricing.bundleCount} ชุด)`, UnitPrice: -pricing.discountAmt, Quantity: 1, Unit: 'รายการ' });
+      }
+
+      const cust = (!isWalkIn) ? (DRV.data.customers || []).find(c => c.CustomerID === DRV.selectedCustomerId) : null;
+      let finalCustName = 'ลูกค้าขาจรทั่วไป';
+      if (isWalkIn) {
+        finalCustName = normalizeDrvWalkInName_(customWalkIn);
+      } else if (cust) {
+        finalCustName = cust.CustomerName;
+        // หากร้านที่เคยกดข้ามไว้กลับมาซื้อน้ำแข็ง ให้ล้างสถานะการข้ามทันที
+        if (DRV.skippedShopsMap[cust.CustomerID]) {
+          delete DRV.skippedShopsMap[cust.CustomerID];
+          saveSkippedShopsState_();
+        }
+      }
+
+      try {
+        await callApi('saveSale', {
+          CustomerID: cust ? cust.CustomerID : 'WALK-IN',
+          CustomerName: finalCustName,
+          RouteID: DRV.lockedRoute ? DRV.lockedRoute.RouteID : 'หน้าลาน',
+          PaymentType: DRV.payType,
+          CreatedBy: 'คนขับ: ' + (DRV.driver.EmpName || ''),
+          items: items
+        });
+        toast(`บันทึกบิล "${finalCustName}" สำเร็จ!`);
+        DRV.cart = {};
+        DRV.selectedCustomerId = '';
+        DRV.walkInCustomName = '';
+        DRV.walkInPresetMode = 'NORMAL';
+        DRV.walkInPriceDelta = 0;
+        DRV.walkInPromo3For100 = false;
+        DRV.walkInCustomPrices = {};
+        reloadDriverData();
+      } catch (e) {}
+    }
+
+    // ==========================================
+    // 🔢 ฟังก์ชันจัดลำดับการส่งน้ำแข็ง (Route Sequencing Controls)
+    // ==========================================
+    function moveShopSequence(index, direction) {
+      const list = DRV.data.customers || [];
+      const targetIdx = index + direction;
+      if (targetIdx < 0 || targetIdx >= list.length) return;
+      const temp = list[index];
+      list[index] = list[targetIdx];
+      list[targetIdx] = temp;
+      list.forEach((c, i) => c.SequenceNo = i + 1);
+      renderShopsCheckTab();
+    }
+
+    function moveShopToPosition(fromIndex, newPosNumber) {
+      const list = DRV.data.customers || [];
+      let toIndex = (parseInt(newPosNumber, 10) || 1) - 1;
+      toIndex = Math.max(0, Math.min(list.length - 1, toIndex));
+      if (fromIndex === toIndex) return;
+      const [moved] = list.splice(fromIndex, 1);
+      list.splice(toIndex, 0, moved);
+      list.forEach((c, i) => c.SequenceNo = i + 1);
+      renderShopsCheckTab();
+    }
+
+    async function saveDriverShopSequence() {
+      if (!DRV.lockedRoute || !DRV.lockedRoute.RouteID) return;
+      const orderedIds = (DRV.data.customers || []).map(c => c.CustomerID);
+      try {
+        await callApi('saveRouteCustomerOrder', {
+          RouteID: DRV.lockedRoute.RouteID,
+          OrderedCustomerIDs: orderedIds,
+          CreatedBy: 'คนขับ: ' + (DRV.driver.EmpName || '')
+        });
+        DRV.isReorderingShops = false;
+        toast('บันทึกลำดับคิวการส่งเรียบร้อยแล้วค่ะ!');
+        renderShopsCheckTab();
+      } catch (e) {}
+    }
+
+    // ==========================================
+    // 🏪 TAB 2: เช็กร้าน / จัดลำดับคิวการส่ง / เก็บหนี้ค้าง
+    // ==========================================
+    function renderShopsCheckTab() {
+      const regularCusts = DRV.data.customers || [];
+      regularCusts.forEach((c, idx) => { if (!c.SequenceNo) c.SequenceNo = idx + 1; });
+
+      if (DRV.isReorderingShops) {
+        const reorderRows = regularCusts.map((c, idx) => `
+          <div class="bg-white p-3 rounded-2xl border-2 border-indigo-200 flex items-center justify-between gap-2 shadow-2xs">
+            <div class="flex items-center gap-2.5 min-w-0 flex-1">
+              <input type="number" value="${idx + 1}" onchange="moveShopToPosition(${idx}, this.value)" class="w-11 h-10 bg-indigo-50 border-2 border-indigo-400 rounded-xl text-center font-black text-indigo-800 text-sm shrink-0">
+              <div class="truncate">
+                <p class="font-extrabold text-slate-800 text-sm truncate">${c.CustomerName}</p>
+                <p class="text-[10px] text-slate-400 font-mono">${c.CustomerID} (พิมพ์เลขคิวด้านซ้ายเพื่อย้ายข้ามได้)</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button onclick="moveShopSequence(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} class="w-10 h-10 rounded-xl ${idx === 0 ? 'bg-slate-100 text-slate-300' : 'bg-blue-50 text-blue-700 border border-blue-200 active:scale-90'} font-black text-base flex items-center justify-center">⬆️</button>
+              <button onclick="moveShopSequence(${idx}, 1)" ${idx === regularCusts.length - 1 ? 'disabled' : ''} class="w-10 h-10 rounded-xl ${idx === regularCusts.length - 1 ? 'bg-slate-100 text-slate-300' : 'bg-blue-50 text-blue-700 border border-blue-200 active:scale-90'} font-black text-base flex items-center justify-center">⬇️</button>
+            </div>
+          </div>
+        `).join('');
+
+        document.getElementById('tab-content').innerHTML = `
+          <div class="bg-indigo-900 text-white p-4 rounded-2xl shadow-lg space-y-2.5">
+            <div class="flex justify-between items-center">
+              <h3 class="font-extrabold text-sm flex items-center gap-1.5">🔢 จัดลำดับคิวการส่งน้ำแข็ง (${regularCusts.length} ร้าน)</h3>
+              <button onclick="DRV.isReorderingShops=false; renderShopsCheckTab();" class="text-xs text-slate-300 underline">ยกเลิก</button>
+            </div>
+            <p class="text-[11px] text-indigo-200 leading-relaxed">กดปุ่ม ⬆️ ⬇️ เพื่อเลื่อนลำดับ หรือพิมพ์ตัวเลขหน้าชื่อร้านเพื่อกระโดดไปยังคิวที่ต้องการ แล้วกดปุ่มสีเขียวด้านล่างเพื่อบันทึกค่ะ</p>
+            <button onclick="saveDriverShopSequence()" class="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-xl text-sm shadow-md active:scale-95 transition">
+              💾 บันทึกลำดับการส่งสายนี้
+            </button>
+          </div>
+          <div class="space-y-2">${reorderRows}</div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      const routeCusts = [...regularCusts];
+      const debtMap = DRV.data.customerDebtMap || {};
+      const addedWalkInKeys = new Set();
+
+      (DRV.walkInGroupKeys || []).forEach(wKey => {
+        const wInfo = DRV.customerSalesMap[wKey];
+        if (wInfo) {
+          addedWalkInKeys.add(wKey);
+          routeCusts.push({
+            CustomerID: wKey,
+            CustomerName: `🚶 ${wInfo.CustomerName}`,
+            Phone: '',
+            IsWalkInCard: true
+          });
+        }
+      });
+
+      Object.keys(debtMap).forEach(dKey => {
+        if (String(dKey).startsWith('WALK-IN::') && !addedWalkInKeys.has(dKey)) {
+          addedWalkInKeys.add(dKey);
+          routeCusts.push({
+            CustomerID: dKey,
+            CustomerName: `🚶 ${debtMap[dKey].CustomerName}`,
+            Phone: '',
+            IsWalkInCard: true
+          });
+        }
+      });
+
+      const pendingList = routeCusts.filter(c => !DRV.customerSalesMap[c.CustomerID] && !c.IsWalkInCard);
+      const doneList = routeCusts.filter(c => DRV.customerSalesMap[c.CustomerID]);
+      const debtList = routeCusts.filter(c => debtMap[c.CustomerID]);
+
+      let displayList = DRV.shopFilterMode === 'PENDING' ? pendingList
+        : (DRV.shopFilterMode === 'DONE' ? doneList
+        : (DRV.shopFilterMode === 'DEBT' ? debtList : routeCusts));
+
+      if (DRV.shopSearchQuery) {
+        const q = DRV.shopSearchQuery.toLowerCase();
+        displayList = displayList.filter(c => String(c.CustomerName).toLowerCase().includes(q));
+      }
+
+      const cardsHTML = displayList.map(c => {
+        const saleInfo = DRV.customerSalesMap[c.CustomerID];
+        const isDone = !!saleInfo;
+        const skipReason = DRV.skippedShopsMap[c.CustomerID] || '';
+        const debtInfo = debtMap[c.CustomerID];
+        const seqBadge = (!c.IsWalkInCard && c.SequenceNo)
+          ? `<span class="px-2 py-0.5 rounded-md bg-slate-800 text-amber-300 font-black text-[10px]">คิว #${c.SequenceNo}</span>`
+          : '';
+
+        const statusBadge = isDone
+          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">✅ ส่งแล้ว (${saleInfo.count} บิล | ${saleInfo.totalQty} หน่วย)</span>`
+          : (c.IsWalkInCard
+              ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">🚶 ขาจรค้างชำระ</span>`
+              : (skipReason
+                  ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-200 text-slate-700">⏭️ ข้าม: ${skipReason}</span>`
+                  : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">⏳ รอส่ง</span>`));
+
+        const storeBillsHTML = (isDone && saleInfo.bills && saleInfo.bills.length > 0) ? `
+          <div class="pt-2 border-t border-slate-100 space-y-1.5">
+            <p class="text-[10px] font-extrabold text-slate-500 flex justify-between">
+              <span>🧾 ประวัติบิลที่ส่งวันนี้ (${saleInfo.bills.length} บิล)</span>
+              <span class="text-emerald-700 font-black">รวม ฿${saleInfo.totalAmt.toLocaleString()}</span>
+            </p>
+            ${saleInfo.bills.map(b => `
+              <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center gap-2 text-xs">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="font-mono text-[10px] font-bold text-blue-600">${b.SaleTime} น. (${b.SaleID})</span>
+                    <span class="px-1.5 py-0.5 rounded bg-white border text-[9px] font-bold text-slate-600">${b.PaymentType}</span>
+                  </div>
+                  <p class="font-bold text-slate-800 mt-0.5 truncate">${b.ItemSummary}</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="font-black text-sm text-slate-900">฿${b.TotalAmount.toLocaleString()}</span>
+                  <button onclick="openCancelDrvSaleModal('${b.SaleID}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg font-extrabold text-[10px] active:scale-95">
+                    ❌ ยกเลิก
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : '';
+
+        const actionBtn = c.IsWalkInCard
+          ? `<button onclick="selectExistingWalkInGroup('${esc(c.CustomerID)}')" class="flex-1 py-2.5 rounded-xl font-extrabold text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 active:scale-95 transition">➕ ส่งเพิ่มให้ขาจรรายนี้</button>`
+          : `<button onclick="unskipShop('${esc(c.CustomerID)}')" class="flex-1 py-2.5 rounded-xl font-extrabold text-xs ${isDone ? 'bg-slate-100 text-slate-700' : 'bg-blue-600 text-white'} active:scale-95 transition">${isDone ? '➕ เปิดบิลส่งเพิ่ม' : '🛒 ส่งน้ำแข็งร้านนี้'}</button>`;
+
+        const skipBtn = (!isDone && !c.IsWalkInCard)
+          ? `<button onclick="openSkipShopModal('${esc(c.CustomerID)}', '${esc(c.CustomerName)}')" class="px-3 py-2.5 rounded-xl font-extrabold text-xs bg-amber-50 text-amber-800 border border-amber-300 active:scale-95">⏭️ ${skipReason ? 'แก้เหตุผล' : 'ไม่ลง'}</button>`
+          : '';
+
+        return `
+          <div class="bg-white p-4 rounded-2xl border-2 ${debtInfo ? 'border-rose-300' : (c.IsWalkInCard ? 'border-indigo-400' : (isDone ? 'border-emerald-400' : (skipReason ? 'border-slate-300 opacity-80' : 'border-slate-200')))} shadow-xs space-y-2.5">
+            <div class="flex justify-between items-start gap-2">
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  ${seqBadge}
+                  ${statusBadge}
+                  ${debtInfo ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-700">🚨 หนี้ค้าง ฿${debtInfo.totalDebt.toLocaleString()}</span>` : ''}
+                </div>
+                <h4 class="font-extrabold text-slate-800 text-base mt-1">${c.CustomerName}</h4>
+              </div>
+              ${c.Phone ? `<a href="tel:${c.Phone}" class="p-2.5 bg-slate-100 rounded-xl text-blue-600 shrink-0"><i data-lucide="phone" class="w-4 h-4"></i></a>` : ''}
+            </div>
+
+            ${storeBillsHTML}
+
+            <div class="flex gap-2 pt-1">
+              ${actionBtn}
+              ${skipBtn}
+              ${debtInfo ? `<button onclick="openDebtCollectModal('${esc(c.CustomerID)}')" class="flex-1 py-2.5 rounded-xl font-extrabold text-xs bg-rose-600 text-white active:scale-95 transition shadow-xs">💰 เก็บหนี้ ฿${debtInfo.totalDebt.toLocaleString()}</button>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('') || `<div class="bg-white p-10 rounded-2xl border text-center text-slate-400 text-sm font-bold">ไม่พบร้านค้าในหมวดนี้</div>`;
+
+      document.getElementById('tab-content').innerHTML = `
+        <div class="flex justify-between items-center bg-indigo-50 border border-indigo-200 px-3.5 py-2.5 rounded-2xl">
+          <span class="text-xs font-extrabold text-indigo-950">📍 เรียงตามลำดับเส้นทางวิ่งส่ง</span>
+          <button onclick="DRV.isReorderingShops=true; renderShopsCheckTab();" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl font-extrabold text-xs shadow-xs active:scale-95">
+            🔢 กดจัดลำดับคิวส่ง
+          </button>
+        </div>
+        <div class="grid grid-cols-4 gap-1.5">
+          <button onclick="DRV.shopFilterMode='PENDING'; renderShopsCheckTab();" class="py-2.5 rounded-xl font-bold text-[11px] border-2 ${DRV.shopFilterMode==='PENDING' ? 'border-amber-500 bg-amber-50 text-amber-900' : 'bg-white border-slate-200 text-slate-600'}">⏳ รอ (${pendingList.length})</button>
+          <button onclick="DRV.shopFilterMode='DONE'; renderShopsCheckTab();" class="py-2.5 rounded-xl font-bold text-[11px] border-2 ${DRV.shopFilterMode==='DONE' ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'bg-white border-slate-200 text-slate-600'}">✅ ส่ง (${doneList.length})</button>
+          <button onclick="DRV.shopFilterMode='DEBT'; renderShopsCheckTab();" class="py-2.5 rounded-xl font-bold text-[11px] border-2 ${DRV.shopFilterMode==='DEBT' ? 'border-rose-600 bg-rose-50 text-rose-800' : 'bg-white border-slate-200 text-slate-600'}">🚨 หนี้ (${debtList.length})</button>
+          <button onclick="DRV.shopFilterMode='ALL'; renderShopsCheckTab();" class="py-2.5 rounded-xl font-bold text-[11px] border-2 ${DRV.shopFilterMode==='ALL' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'bg-white border-slate-200 text-slate-600'}">ทั้งหมด (${routeCusts.length})</button>
+        </div>
+        <div class="bg-white p-2.5 rounded-2xl border border-slate-200">
+          <input type="text" value="${esc(DRV.shopSearchQuery)}" oninput="DRV.shopSearchQuery=this.value; renderShopsCheckTab();" placeholder="🔍 ค้นหาชื่อร้านค้า / ชื่องานขาจร..." class="w-full px-3 py-1.5 text-xs font-bold outline-none">
+        </div>
+        <div class="space-y-2.5">${cardsHTML}</div>
+      `;
+      lucide.createIcons();
+    }
+
+    function openStoreBillsModal(customerId) {
+      const saleInfo = DRV.customerSalesMap[customerId];
+      if (!saleInfo || !saleInfo.bills) return;
+      const rows = saleInfo.bills.map(b => `
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center gap-2 text-xs">
+          <div class="min-w-0 flex-1">
+            <span class="font-mono text-[10px] font-bold text-blue-600">${b.SaleTime} น. (${b.SaleID})</span>
+            <p class="font-extrabold text-slate-800 mt-0.5">${b.ItemSummary}</p>
+            <span class="text-[10px] text-slate-500">ชำระโดย: ${b.PaymentType}</span>
+          </div>
+          <div class="text-right shrink-0 space-y-1">
+            <p class="font-black text-base text-slate-900">฿${b.TotalAmount.toLocaleString()}</p>
+            <button onclick="openCancelDrvSaleModal('${b.SaleID}')" class="px-3 py-1.5 bg-rose-600 text-white rounded-xl font-extrabold text-[10px] active:scale-95">
+              ❌ ยกเลิกบิลนี้
+            </button>
+          </div>
+        </div>
+      `).join('');
+
+      document.getElementById('drv-modal-content').innerHTML = `
+        <div class="space-y-4">
+          <div class="flex justify-between items-center border-b pb-2.5">
+            <div>
+              <span class="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">ประวัติบิลวันนี้ (${saleInfo.count} บิล | รวม ฿${saleInfo.totalAmt.toLocaleString()})</span>
+              <h3 class="font-extrabold text-lg text-slate-800 mt-0.5">${saleInfo.CustomerName}</h3>
+            </div>
+            <button onclick="closeDrvModal()" class="p-1 text-slate-400"><i data-lucide="x" class="w-6 h-6"></i></button>
+          </div>
+          <div class="space-y-2 max-h-72 overflow-y-auto">${rows}</div>
+          <button onclick="closeDrvModal()" class="w-full py-3 bg-slate-100 text-slate-700 font-extrabold rounded-xl text-xs">ปิดหน้าต่าง</button>
+        </div>
+      `;
+      document.getElementById('drv-modal-backdrop').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    // ==========================================
+    // 🔄 TAB 3: เบิกเพิ่ม / โอนน้ำแข็ง + ประวัติการเบิกน้ำแข็งขึ้นรถทั้งหมด
+    // ==========================================
+    function renderTransferTab() {
+      const allProds = DRV.data.products || [];
+      const otherRoutes = DRV.data.otherActiveRoutes || [];
+      const dsp = DRV.myDispatch || {};
+
+      const reloadInputsHTML = allProds.map(p => `
+        <div class="flex items-center justify-between p-2.5 bg-emerald-50/50 border border-emerald-200 rounded-xl">
+          <span class="text-xs font-bold text-slate-800">${p.ProductName} (${p.Unit})</span>
+          <input type="number" class="drv-rld-qty w-20 p-2 bg-white border-2 border-emerald-400 rounded-xl text-center font-black text-emerald-700" data-id="${p.ProductID}" data-name="${esc(p.ProductName)}" placeholder="0">
+        </div>
+      `).join('');
+
+      const loadHistoryCards = (DRV.reloadHistory || []).map(h => {
+        let badgeStyle = 'bg-blue-100 text-blue-800 border-blue-200';
+        if (h.type === 'RELOAD') badgeStyle = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+        if (h.type === 'TRANSFER') badgeStyle = 'bg-indigo-100 text-indigo-800 border-indigo-200';
+        return `
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
+            <div class="flex justify-between items-center">
+              <span class="px-2 py-0.5 rounded-md border text-[10px] font-extrabold ${badgeStyle}">รอบที่ ${h.step}: ${h.label}</span>
+            </div>
+            <p class="font-extrabold text-slate-800 pt-0.5">${h.detail}</p>
+          </div>
+        `;
+      }).join('') || `<p class="text-xs text-slate-400 text-center py-3">ยังไม่มีบันทึกรายละเอียดการเบิก</p>`;
+
+      const routeOpts = otherRoutes.map(r => `<option value="${r.DispatchID}" data-rname="${esc(r.RouteName)}">${r.RouteName} (${r.DriverName})</option>`).join('');
+      const prodOpts = DRV.truckInventory.filter(p => p.remainQty > 0).map(p => `<option value="${p.ProductID}" data-name="${esc(p.ProductName)}" data-unit="${esc(p.Unit)}" data-max="${p.remainQty}">${p.ProductName} (เหลือ ${p.remainQty})</option>`).join('');
+
+      const trfLogs = (DRV.data.todayTransfers || []).map(t => {
+        const isOut = String(t.FromDispatchID) === String(DRV.myDispatch?.DispatchID);
+        return `<div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center text-xs">
+          <span>${isOut ? `📤 โอนให้ <b>${t.ToRouteName}</b>` : `📥 รับโอนจาก <b>${t.FromRouteName}</b>`}: ${t.ProductName} <span class="text-[10px] text-slate-400">(${String(t.TransferDate || '').slice(11,16)} น.)</span></span>
+          <b class="${isOut ? 'text-rose-600' : 'text-emerald-600'}">${isOut ? '-' : '+'}${t.Quantity}</b>
+        </div>`;
+      }).join('');
+
+      document.getElementById('tab-content').innerHTML = `
+        <div class="bg-white p-4 rounded-2xl border-2 border-blue-400 space-y-2.5 shadow-xs">
+          <div class="flex justify-between items-center">
+            <h3 class="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+              <i data-lucide="clipboard-list" class="w-5 h-5 text-blue-600"></i> ประวัติการเบิกน้ำแข็งวันนี้ (${DRV.reloadHistory.length} รอบ)
+            </h3>
+            <span class="text-xs font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">เบิกสุทธิ ${dsp.LoadedQty || 0} หน่วย</span>
+          </div>
+          <div class="space-y-1.5">${loadHistoryCards}</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-emerald-400 space-y-3 shadow-xs">
+          <h3 class="font-extrabold text-base text-emerald-900 flex items-center gap-2"><i data-lucide="package-plus" class="w-5 h-5 text-emerald-600"></i> เบิกน้ำแข็งเพิ่มขึ้นรถ (ระหว่างวัน)</h3>
+          <div class="space-y-1.5">${reloadInputsHTML}</div>
+          <input type="text" id="drv-rld-note" class="w-full p-2.5 border border-slate-200 rounded-xl text-xs" placeholder="หมายเหตุ (เช่น เบิกเพิ่มรอบบ่าย)...">
+          <button onclick="submitDriverReload()" class="w-full py-3.5 bg-emerald-600 text-white font-extrabold rounded-xl text-sm shadow-md active:scale-95">➕ ยืนยันเบิกน้ำแข็งเพิ่ม</button>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3 shadow-xs">
+          <h3 class="font-extrabold text-base text-slate-800 flex items-center gap-2"><i data-lucide="arrow-left-right" class="w-5 h-5 text-indigo-600"></i> โอนน้ำแข็งให้สายส่งอื่น</h3>
+          ${otherRoutes.length === 0 ? `<div class="text-xs text-amber-800 bg-amber-50 p-3 rounded-xl font-bold text-center">ไม่มีสายส่งอื่นที่กำลังวิ่งอยู่ในขณะนี้</div>` : `
+            <select id="trf-to-dsp" class="w-full p-3 border-2 border-indigo-400 rounded-xl font-bold text-sm bg-white text-slate-900">${routeOpts}</select>
+            <div class="grid grid-cols-2 gap-2.5">
+              <select id="trf-prod" class="w-full p-3 border-2 rounded-xl font-bold text-sm bg-white text-slate-900">${prodOpts}</select>
+              <input type="number" id="trf-qty" class="w-full p-3 border-2 rounded-xl font-black text-center" placeholder="จำนวน">
+            </div>
+            <button onclick="submitIceTransfer()" class="w-full py-3.5 bg-indigo-600 text-white font-extrabold rounded-xl text-sm shadow-md active:scale-95">🔄 ยืนยันโอนน้ำแข็ง</button>
+          `}
+          ${trfLogs ? `<div class="pt-2 border-t space-y-1.5"><p class="text-[11px] font-bold text-slate-500">ประวัติโอนย้ายวันนี้:</p>${trfLogs}</div>` : ''}
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    function openLoadHistoryModal() {
+      const dsp = DRV.myDispatch || {};
+      const loadRows = (DRV.reloadHistory || []).map(h => `
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+          <span class="font-extrabold text-blue-700 block">รอบที่ ${h.step}: ${h.label}</span>
+          <p class="font-bold text-slate-800">${h.detail}</p>
+        </div>
+      `).join('') || `<p class="text-xs text-slate-400 text-center py-4">ยังไม่มีประวัติการเบิก</p>`;
+
+      const stockRows = (DRV.truckInventory || []).map(itm => `
+        <div class="flex justify-between items-center p-2.5 bg-white rounded-xl border border-slate-200 text-xs">
+          <div>
+            <span class="font-extrabold text-slate-800">${itm.ProductName}</span>
+            <span class="text-[10px] text-slate-500 block">เบิกสุทธิ ${itm.loadedQty} | ขายไป ${itm.soldQty}</span>
+          </div>
+          <span class="font-black text-sm ${itm.remainQty <= 0 ? 'text-rose-600' : 'text-amber-600'}">เหลือ ${itm.remainQty} ${itm.Unit}</span>
+        </div>
+      `).join('');
+
+      document.getElementById('drv-modal-content').innerHTML = `
+        <div class="space-y-4">
+          <div class="flex justify-between items-center border-b pb-2.5">
+            <div>
+              <span class="text-[10px] font-extrabold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">${dsp.DispatchID || '-'}</span>
+              <h3 class="font-extrabold text-lg text-slate-800 mt-0.5">📦 ประวัติการเบิกน้ำแข็ง & สต๊อกบนรถ</h3>
+            </div>
+            <button onclick="closeDrvModal()" class="p-1 text-slate-400"><i data-lucide="x" class="w-6 h-6"></i></button>
+          </div>
+          <div class="space-y-1.5">
+            <p class="text-xs font-extrabold text-slate-600">1. ประวัติการเบิกขึ้นรถวันนี้ (รวม ${dsp.LoadedQty || 0} หน่วย):</p>
+            <div class="space-y-1.5 max-h-44 overflow-y-auto">${loadRows}</div>
+          </div>
+          <div class="space-y-1.5">
+            <p class="text-xs font-extrabold text-slate-600">2. ยอดคงเหลือบนรถแยกตามชนิด:</p>
+            <div class="space-y-1.5">${stockRows}</div>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="closeDrvModal()" class="w-1/2 py-3 bg-slate-100 rounded-xl font-extrabold text-xs text-slate-700">ปิดหน้าต่าง</button>
+            <button onclick="closeDrvModal(); switchTab('transfer');" class="w-1/2 py-3 bg-emerald-600 text-white rounded-xl font-extrabold text-xs">➕ ไปหน้าเบิกเพิ่ม</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('drv-modal-backdrop').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    async function submitDriverReload() {
+      let addedQty = 0;
+      const detailsArr = [];
+      const detailsText = [];
+      document.querySelectorAll('.drv-rld-qty').forEach(inp => {
+        const q = parseFloat(inp.value) || 0;
+        if (q > 0) {
+          addedQty += q;
+          detailsArr.push({ id: inp.getAttribute('data-id'), name: inp.getAttribute('data-name'), qty: q });
+          detailsText.push(`${inp.getAttribute('data-name')} +${q}`);
+        }
+      });
+      if (addedQty <= 0) return toast('กรุณาระบุจำนวนน้ำแข็งที่เบิกเพิ่ม', 'error');
+      const note = document.getElementById('drv-rld-note')?.value.trim() || '';
+      try {
+        await callApi('reloadDispatch', {
+          DispatchID: DRV.myDispatch.DispatchID,
+          AddedQty: addedQty,
+          AddedDetailsText: detailsText.join(', '),
+          AddedDetailsJSON: JSON.stringify(detailsArr),
+          Note: note,
+          CreatedBy: DRV.driver.EmpName
+        });
+        toast('บันทึกเบิกน้ำแข็งเพิ่มสำเร็จ!');
+        reloadDriverData();
+      } catch (e) {}
+    }
+
+    async function submitIceTransfer() {
+      const toSel = document.getElementById('trf-to-dsp');
+      const prodSel = document.getElementById('trf-prod');
+      const qty = parseFloat(document.getElementById('trf-qty').value) || 0;
+      if (!toSel || !prodSel || qty <= 0) return toast('กรุณาเลือกข้อมูลและระบุจำนวนที่โอน', 'error');
+      try {
+        await callApi('saveIceTransfer', {
+          FromDispatchID: DRV.myDispatch.DispatchID,
+          ToDispatchID: toSel.value,
+          ProductID: prodSel.value,
+          ProductName: prodSel.options[prodSel.selectedIndex].getAttribute('data-name'),
+          Quantity: qty,
+          DriverName: DRV.driver.EmpName
+        });
+        toast('โอนน้ำแข็งให้เพื่อนร่วมสายสำเร็จ!');
+        reloadDriverData();
+      } catch (e) {}
+    }
+
+    // ==========================================
+    // 💰 TAB 4: ส่งเงิน / สรุปกะ + ตารางเก็บหนี้ค้างเก่า + ประวัติบิลส่งทั้งหมด
+    // ==========================================
+    function renderSummaryTab() {
+      const fin = DRV.finance;
+      const dsp = DRV.myDispatch || {};
+      const startMile = parseFloat(dsp.StartMileage) || 0;
+      const endMile = parseFloat(dsp.EndMileage) || 0;
+      const vOpts = (DRV.data.vehicles || []).map(v => `<option value="${esc(v.LicensePlate)}" ${dsp.VehicleID === v.LicensePlate ? 'selected' : ''}>${v.LicensePlate}</option>`).join('');
+
+      const allCusts = DRV.data.customers || [];
+      const boughtCount = allCusts.filter(c => DRV.customerSalesMap[c.CustomerID]).length;
+      const missedCount = allCusts.length - boughtCount;
+      const walkInGroupCount = (DRV.walkInGroupKeys || []).length;
+
+      const debtPayments = DRV.data.todayDebtPayments || [];
+      const debtPaymentRows = debtPayments.map((p, idx) => {
+        const isTrf = String(p.PaymentMethod || '').includes('โอน');
+        const amt = parseFloat(p.AmountPaid) || 0;
+        return `
+          <div class="p-3 bg-purple-50/60 rounded-2xl border border-purple-200 flex justify-between items-center gap-2 text-xs">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-[10px] font-mono text-purple-600 font-bold">#${debtPayments.length - idx} (${String(p.PaymentDate || '').slice(11, 16)} น.)</span>
+                <span class="font-extrabold text-slate-800 truncate">${p.CustomerName || 'ลูกค้า'}</span>
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-extrabold ${isTrf ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}">${p.PaymentMethod || 'เงินสด'}</span>
+              </div>
+              <p class="text-[10px] text-slate-500 mt-0.5 truncate">เคลียร์บิล: <b>${p.RefSaleIDs || '-'}</b> (${p.PaymentID})</p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="font-black text-sm ${isTrf ? 'text-blue-700' : 'text-emerald-700'}">+฿${amt.toLocaleString()}</span>
+            </div>
+          </div>
+        `;
+      }).join('') || `<p class="text-xs text-slate-400 text-center py-4">วันนี้ยังไม่มีรายการเก็บหนี้ค้างเก่า</p>`;
+
+      const allRouteSales = (DRV.data.todayRouteSales || []).filter(s => s.PaymentStatus !== 'Cancelled' && s.PaymentStatus !== 'ยกเลิก');
+      const allBillRows = allRouteSales.map((s, idx) => `
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex justify-between items-center gap-2 text-xs">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-mono text-slate-400">#${allRouteSales.length - idx}</span>
+              <span class="font-extrabold text-slate-800 truncate">${s.CustomerName || 'ขาจร'}</span>
+              <span class="text-[10px] font-mono text-blue-600">(${String(s.SaleDate || '').slice(11, 16)} น.)</span>
+            </div>
+            <p class="text-[11px] text-slate-600 mt-0.5 truncate">${s.ItemSummary} • <b>${s.PaymentType}</b></p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="font-black text-sm text-slate-900">฿${Number(s.TotalAmount).toLocaleString()}</span>
+            <button onclick="openCancelDrvSaleModal('${s.SaleID}')" class="px-2.5 py-1.5 bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-extrabold text-[10px] active:scale-95">
+              ❌ ยกเลิก
+            </button>
+          </div>
+        </div>
+      `).join('') || `<p class="text-xs text-slate-400 text-center py-6">ยังไม่มีบิลขายในวันนี้</p>`;
+
+      document.getElementById('tab-content').innerHTML = `
+        <div class="bg-slate-900 text-white p-5 rounded-3xl shadow-lg space-y-3">
+          <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
+            <h3 class="font-bold text-sm">สรุปยอดส่งเงินประจำกะ</h3>
+            <span class="text-xs text-slate-300">รวมขายวันนี้ ฿${fin.totalSales.toLocaleString()}</span>
+          </div>
+          <div class="space-y-1.5 text-xs">
+            <div class="flex justify-between"><span>💵 ขายน้ำแข็งรับเงินสด:</span><span class="font-bold">+฿${fin.cashSales.toLocaleString()}</span></div>
+            <div class="flex justify-between bg-purple-950/60 px-2 py-1 rounded border border-purple-700/60">
+              <span>💰 เก็บหนี้ค้างเก่า (เงินสด ${debtPayments.filter(p => !String(p.PaymentMethod || '').includes('โอน')).length} รายการ):</span>
+              <span class="font-extrabold text-emerald-300">+฿${fin.collectedDebtCash.toLocaleString()}</span>
+            </div>
+            ${fin.collectedDebtTransfer > 0 ? `
+              <div class="flex justify-between px-2 py-0.5 text-blue-300">
+                <span>📱 เก็บหนี้ค้างเก่า (ลูกค้าโอน):</span>
+                <span class="font-bold">฿${fin.collectedDebtTransfer.toLocaleString()}</span>
+              </div>
+            ` : ''}
+            <div class="flex justify-between bg-rose-950/60 px-2 py-1 rounded border border-rose-800"><span>⛽ หักค่าน้ำมันจ่ายสด:</span><span class="font-extrabold text-rose-400">-฿${fin.cashFuelExpense.toLocaleString()}</span></div>
+            <div class="flex justify-between pt-1 border-t border-slate-800"><span class="text-slate-400">📱 รวมยอดโอนเข้าบัญชี (ขายโอน+หนี้โอน):</span><span class="font-bold text-blue-400">฿${(fin.transferSales + fin.collectedDebtTransfer).toLocaleString()}</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">💳 ลูกค้าเซ็นบิลเชื่อวันนี้:</span><span class="font-bold text-amber-400">฿${fin.creditSales.toLocaleString()}</span></div>
+          </div>
+          <div class="bg-emerald-500/20 border border-emerald-500/40 p-3.5 rounded-2xl flex justify-between items-center">
+            <span class="text-xs font-bold text-emerald-300">เงินสดสุทธิส่งเสมียน</span>
+            <span class="text-2xl font-black text-emerald-400">฿${fin.netCashToSubmit.toLocaleString()}</span>
+          </div>
+
+          <div class="space-y-2 pt-2 border-t border-slate-800">
+            <button onclick="printDriverA4Report()" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md transition">
+              <i data-lucide="file-text" class="w-4 h-4"></i> พิมพ์ใบสรุปรายงาน A4 / PDF (ซื้อ ${boughtCount + walkInGroupCount} | เก็บหนี้ ${debtPayments.length} | ไม่ลง ${missedCount})
+            </button>
+            <button onclick="printDriverSummarySlip()" class="w-full py-3 bg-white hover:bg-slate-100 active:scale-95 text-slate-900 font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md transition">
+              <i data-lucide="printer" class="w-4 h-4 text-emerald-600"></i> พิมพ์สลิปส่งเงินสดย่อ (80mm)
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-purple-300 space-y-2.5 shadow-xs">
+          <div class="flex justify-between items-center">
+            <h3 class="font-extrabold text-sm text-purple-950 flex items-center gap-1.5">
+              <i data-lucide="hand-coins" class="w-4 h-4 text-purple-600"></i> รายการเก็บหนี้ค้างเก่าวันนี้ (${debtPayments.length} รายการ)
+            </h3>
+            <span class="text-xs font-black text-purple-700">รวม ฿${(fin.collectedDebtCash + fin.collectedDebtTransfer).toLocaleString()}</span>
+          </div>
+          <div class="space-y-1.5 max-h-60 overflow-y-auto pr-1">${debtPaymentRows}</div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-blue-400 space-y-3">
+          <h3 class="font-extrabold text-sm text-slate-800 flex items-center gap-1.5"><i data-lucide="gauge" class="w-4 h-4 text-blue-600"></i> บันทึกเลขไมล์รถ</h3>
+          <div class="grid grid-cols-2 gap-2.5">
+            <button onclick="openMileageModal('START')" class="p-3 rounded-xl border-2 bg-slate-50 text-left active:scale-95"><p class="text-[10px] font-bold text-slate-500">1. ไมล์ก่อนออกส่ง</p><p class="text-base font-black">${startMile > 0 ? startMile.toLocaleString() : 'กดบันทึก'}</p></button>
+            <button onclick="openMileageModal('END')" class="p-3 rounded-xl border-2 bg-blue-50 text-left active:scale-95"><p class="text-[10px] font-bold text-slate-500">2. ไมล์หลังส่งเสร็จ</p><p class="text-base font-black text-blue-700">${endMile > 0 ? endMile.toLocaleString() : '🏁 ลงไมล์จบ'}</p></button>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
+          <h3 class="font-extrabold text-sm text-slate-800 flex items-center gap-1.5"><i data-lucide="fuel" class="w-4 h-4 text-rose-500"></i> บันทึกค่าน้ำมัน</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <select id="m-fuel-veh" class="w-full p-2.5 border rounded-xl font-bold text-xs bg-white text-slate-900">${vOpts}</select>
+            <input type="number" id="m-fuel-mile" value="${endMile || startMile || ''}" class="w-full p-2.5 border rounded-xl font-bold text-xs" placeholder="เลขไมล์ตอนเติม">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="number" id="m-fuel-cost" class="w-full p-2.5 border-2 border-rose-300 rounded-xl font-black text-rose-600 text-sm" placeholder="ยอดเงิน (บาท)">
+            <select id="m-fuel-paid" class="w-full p-2.5 border rounded-xl font-bold text-xs bg-white text-slate-900"><option value="หักเงินสดสายส่ง">หักเงินสดสายส่ง</option><option value="บิลเครดิตปั๊ม">เซ็นบิลปั๊ม</option></select>
+          </div>
+          <button onclick="submitDrvFuel()" class="w-full py-3.5 bg-rose-600 text-white font-extrabold rounded-xl text-xs shadow-sm active:scale-95">บันทึกค่าน้ำมัน</button>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-2.5">
+          <div class="flex justify-between items-center">
+            <h3 class="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+              <i data-lucide="receipt" class="w-4 h-4 text-emerald-600"></i> ประวัติบิลส่งน้ำแข็งวันนี้ (${allRouteSales.length} บิล)
+            </h3>
+            <span class="text-[11px] font-bold text-slate-500">กด ❌ เพื่อยกเลิกบิลที่คีย์ผิด</span>
+          </div>
+          <div class="space-y-2 max-h-96 overflow-y-auto pr-1">${allBillRows}</div>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    async function submitDrvFuel() {
+      const cost = parseFloat(document.getElementById('m-fuel-cost').value) || 0;
+      const mile = parseFloat(document.getElementById('m-fuel-mile').value) || 0;
+      if (cost <= 0 || mile <= 0) return toast('กรุณาระบุยอดเงินและเลขไมล์ตอนเติม', 'error');
+      try {
+        await callApi('saveFuelLog', {
+          VehicleID: document.getElementById('m-fuel-veh').value,
+          DriverName: DRV.driver.EmpName,
+          Mileage: mile,
+          Liters: 0,
+          TotalCost: cost,
+          PaidBy: document.getElementById('m-fuel-paid').value
+        });
+        toast('บันทึกค่าน้ำมันสำเร็จ!');
+        reloadDriverData();
+      } catch (e) {}
+    }
+
+    // ==========================================
+    // 🖨️ ฟังก์ชันพิมพ์ใบสรุป A4 (PDF) & สลิป 80mm (ครบทั้งตารางขาย, ตารางเก็บหนี้เก่า และตารางร้านไม่ลงน้ำแข็งพร้อมเหตุผล)
+    // ==========================================
+    function printDriverSummarySlip() {
+      const dsp = DRV.myDispatch || {};
+      const fin = DRV.finance;
+      const now = new Date().toLocaleString('th-TH');
+      let totalUnits = 0;
+      (DRV.data.todayRouteSales || []).forEach(s => {
+        if (s.PaymentStatus !== 'Cancelled' && s.PaymentStatus !== 'ยกเลิก') totalUnits += (parseFloat(s.TotalQty) || 0);
+      });
+
+      const debtPayments = DRV.data.todayDebtPayments || [];
+      const debtSlipDetailRows = debtPayments.map(p => `
+        <tr>
+          <td style="padding: 1px 0 1px 8px; font-size: 10px; color: #333;">• ${p.CustomerName} (${p.PaymentMethod})</td>
+          <td style="text-align: right; font-size: 10px; color: #333;">฿${Number(p.AmountPaid || 0).toLocaleString()}</td>
+        </tr>
+      `).join('');
+
+      const slipHTML = `
+        <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 8px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: bold;">ใบสรุปส่งเงินสดสายส่ง</h2>
+          <p style="margin: 2px 0 0 0; font-size: 11px;">โรงน้ำแข็งแม่ใจ</p>
+        </div>
+        <div style="font-size: 11px; margin-bottom: 8px;">
+          <div><b>สายส่ง:</b> ${dsp.RouteName || '-'}</div>
+          <div><b>คนขับ:</b> ${DRV.driver.EmpName || '-'} (${dsp.VehicleID || '-'})</div>
+          <div><b>เวลาพิมพ์:</b> ${now}</div>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 8px;">
+          <tr style="border-top: 1px solid #000; border-bottom: 1px solid #000;"><th style="text-align: left; padding: 3px 0;">รายการ</th><th style="text-align: right; padding: 3px 0;">จำนวนเงิน</th></tr>
+          <tr><td style="padding: 2px 0;">1. ขายรับเงินสด</td><td style="text-align: right;">฿${fin.cashSales.toLocaleString()}</td></tr>
+          <tr><td style="padding: 2px 0;">2. ขายรับโอน</td><td style="text-align: right;">฿${fin.transferSales.toLocaleString()}</td></tr>
+          <tr><td style="padding: 2px 0;">3. ขายลงบิลเชื่อ</td><td style="text-align: right;">฿${fin.creditSales.toLocaleString()}</td></tr>
+          <tr><td style="padding: 2px 0; font-weight: bold;">4. เก็บหนี้เก่า (สด +฿${fin.collectedDebtCash.toLocaleString()}${fin.collectedDebtTransfer > 0 ? ` | โอน ฿${fin.collectedDebtTransfer.toLocaleString()}` : ''})</td><td style="text-align: right; font-weight: bold;">+฿${fin.collectedDebtCash.toLocaleString()}</td></tr>
+          ${debtSlipDetailRows}
+          <tr style="border-top: 1px dotted #000;"><td style="padding: 3px 0; font-weight: bold;">รวมเงินสดรับ (1+4 เงินสด)</td><td style="text-align: right; font-weight: bold;">฿${(fin.cashSales + fin.collectedDebtCash).toLocaleString()}</td></tr>
+          <tr><td style="padding: 2px 0;">หักค่าน้ำมันจ่ายสด</td><td style="text-align: right;">-฿${fin.cashFuelExpense.toLocaleString()}</td></tr>
+        </table>
+        <div style="border-top: 2px solid #000; padding-top: 6px; display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;">
+          <span>เงินสดสุทธิส่งเสมียน:</span><span>฿${fin.netCashToSubmit.toLocaleString()}</span>
+        </div>
+        <div style="margin-top: 8px; font-size: 10px;">เบิกสุทธิ: ${dsp.LoadedQty || 0} หน่วย | ขายตามบิล: ${totalUnits} หน่วย</div>
+        <div style="text-align: center; margin-top: 20px; font-size: 10px;"><p>ผู้ส่งเงิน.................................. ผู้รับเงิน..................................</p></div>
+      `;
+
+      const slipContainer = document.getElementById('slip-container');
+      slipContainer.innerHTML = slipHTML;
+      document.body.classList.add('print-slip');
+      slipContainer.classList.remove('hidden');
+      window.print();
+      slipContainer.classList.add('hidden');
+      document.body.classList.remove('print-slip');
+    }
+
+    function printDriverA4Report() {
+      const dsp = DRV.myDispatch || {};
+      const fin = DRV.finance;
+      const now = new Date().toLocaleString('th-TH');
+      const allCusts = DRV.data.customers || [];
+      const debtMap = DRV.data.customerDebtMap || {};
+      const debtPayments = DRV.data.todayDebtPayments || [];
+
+      const startM = parseFloat(dsp.StartMileage) || 0;
+      const endM = parseFloat(dsp.EndMileage) || 0;
+      const distKm = (startM > 0 && endM >= startM) ? (endM - startM) : 0;
+
+      const stockSummaryText = DRV.truckInventory.map(itm => `${itm.ProductName}: เบิก ${itm.loadedQty} | ขาย ${itm.soldQty} | คงเหลือ ${itm.remainQty}`).join('  •  ');
+      const loadHistoryText = (DRV.reloadHistory || []).map(h => `รอบที่ ${h.step} (${h.label}): ${h.detail}`).join('  |  ');
+
+      const boughtCusts = allCusts.filter(c => DRV.customerSalesMap[c.CustomerID]);
+      const walkInGroups = (DRV.walkInGroupKeys || []).map(k => DRV.customerSalesMap[k]).filter(Boolean);
+
+      const walkInRows = walkInGroups.map((wInfo, wIdx) => `
+        <tr>
+          <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">${boughtCusts.length + wIdx + 1}</td>
+          <td style="padding: 5px; border: 1px solid #cbd5e1;"><b>${wInfo.CustomerName}${wInfo.count > 1 ? ` (${wInfo.count} บิล)` : ''}</b></td>
+          <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">${wInfo.lastTime} น.</td>
+          <td style="padding: 5px; border: 1px solid #cbd5e1;">${wInfo.summaries.join('<br>')}</td>
+          <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold;">${wInfo.totalQty}</td>
+          <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">฿${wInfo.totalAmt.toLocaleString()}</td>
+        </tr>
+      `).join('');
+
+      const boughtRows = boughtCusts.map((c, idx) => {
+        const info = DRV.customerSalesMap[c.CustomerID];
+        return `
+          <tr>
+            <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
+            <td style="padding: 5px; border: 1px solid #cbd5e1;"><b>${c.CustomerName}</b></td>
+            <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">${info.lastTime} น.</td>
+            <td style="padding: 5px; border: 1px solid #cbd5e1;">${info.summaries.join('<br>')}</td>
+            <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold;">${info.totalQty}</td>
+            <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">฿${info.totalAmt.toLocaleString()}</td>
+          </tr>
+        `;
+      }).join('') + walkInRows;
+
+      const debtPaidRows = debtPayments.map((p, idx) => `
+        <tr>
+          <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
+          <td style="padding: 5px; border: 1px solid #cbd5e1; font-weight: bold;">${p.CustomerName || '-'}</td>
+          <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">${String(p.PaymentDate || '').slice(11, 16)} น.</td>
+          <td style="padding: 5px; border: 1px solid #cbd5e1; font-size: 10px;">${p.RefSaleIDs || '-'} (${p.PaymentID})</td>
+          <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; color: ${String(p.PaymentMethod || '').includes('โอน') ? '#1d4ed8' : '#047857'};">${p.PaymentMethod || 'เงินสด'}</td>
+          <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">฿${Number(p.AmountPaid || 0).toLocaleString()}</td>
+        </tr>
+      `).join('');
+
+      const missedCusts = allCusts.filter(c => !DRV.customerSalesMap[c.CustomerID]);
+      const missedRows = missedCusts.map((c, idx) => {
+        const dInfo = debtMap[c.CustomerID];
+        const reasonTxt = DRV.skippedShopsMap[c.CustomerID] || 'ไม่ได้ลงน้ำแข็งวันนี้';
+        return `
+          <tr>
+            <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
+            <td style="padding: 5px; border: 1px solid #cbd5e1; font-weight: bold; color: #b91c1c;">${c.CustomerName}</td>
+            <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center;">${c.Phone || '-'}</td>
+            <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold; color: ${dInfo ? '#dc2626' : '#64748b'};">${dInfo ? 'ค้าง ฿' + dInfo.totalDebt.toLocaleString() : '-'}</td>
+            <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: center; color: #b91c1c; font-weight: bold;">${reasonTxt}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const a4HTML = `
+        <div style="border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end;">
+          <div>
+            <h1 style="font-size: 16px; font-weight: 800; margin: 0;">โรงน้ำแข็งแม่ใจ — รายงานสรุปการส่งน้ำแข็งประจำกะ (Route Audit Report)</h1>
+            <p style="font-size: 11px; margin: 2px 0 0 0; color: #334155;">สายส่ง: <b>${dsp.RouteName || '-'}</b> | คนขับ: <b>${DRV.driver.EmpName || '-'}</b> | ทะเบียนรถ: <b>${dsp.VehicleID || '-'}</b> | ไมล์: ${startM} → ${endM} (${distKm} กม.)</p>
+          </div>
+          <div style="text-align: right; font-size: 10px; color: #475569;">พิมพ์เมื่อ: ${now}</div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 8px;">
+          <tr style="background: #f1f5f9; font-weight: bold; text-align: center;">
+            <td style="padding: 6px; border: 1px solid #cbd5e1;">ยอดขายรวม<br><b style="font-size: 13px;">฿${fin.totalSales.toLocaleString()}</b></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; color: #047857;">ขายเงินสด<br><b style="font-size: 13px;">฿${fin.cashSales.toLocaleString()}</b></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; color: #1d4ed8;">ขายโอน<br><b style="font-size: 13px;">฿${fin.transferSales.toLocaleString()}</b></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; color: #b45309;">ขายบิลเชื่อ<br><b style="font-size: 13px;">฿${fin.creditSales.toLocaleString()}</b></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; color: #6d28d9;">เก็บหนี้เก่า (สด/โอน)<br><b style="font-size: 12px;">สด +฿${fin.collectedDebtCash.toLocaleString()} | โอน ฿${fin.collectedDebtTransfer.toLocaleString()}</b></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; color: #be123c;">หักน้ำมันสด<br><b style="font-size: 13px;">-฿${fin.cashFuelExpense.toLocaleString()}</b></td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1; background: #ecfdf5; color: #065f46;">เงินสดสุทธิส่งเสมียน<br><b style="font-size: 14px;">฿${fin.netCashToSubmit.toLocaleString()}</b></td>
+          </tr>
+        </table>
+
+        <div style="font-size: 10px; padding: 5px 8px; background: #f8fafc; border: 1px solid #cbd5e1; margin-bottom: 4px;">
+          <b>📦 ประวัติการเบิกน้ำแข็งขึ้นรถ:</b> ${loadHistoryText || '-'}
+        </div>
+        <div style="font-size: 10px; padding: 5px 8px; background: #f8fafc; border: 1px solid #cbd5e1; margin-bottom: 12px;">
+          <b>🧊 สรุปสต๊อกน้ำแข็งบนรถ:</b> ${stockSummaryText || '-'}
+        </div>
+
+        <h3 style="font-size: 12px; font-weight: 800; margin: 0 0 6px 0; color: #065f46;">✅ 1. รายชื่อร้านค้าที่ซื้อ/ลงน้ำแข็งวันนี้ (${boughtCusts.length} ร้านประจำ ${walkInGroups.length > 0 ? `+ ขาจร ${walkInGroups.length} รายการ` : ''})</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; margin-bottom: 12px;">
+          <thead>
+            <tr style="background: #f1f5f9;">
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 6%;">#</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 24%; text-align: left;">ชื่อร้านค้า / ลูกค้าขาจร</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 10%;">เวลา</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 40%; text-align: left;">รายการน้ำแข็งที่ลง & การชำระเงิน</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 8%;">หน่วย</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 12%; text-align: right;">ยอดเงินรวม</th>
+            </tr>
+          </thead>
+          <tbody>${boughtRows || '<tr><td colspan="6" style="padding: 8px; text-align: center; border: 1px solid #cbd5e1;">ยังไม่มีรายการขายในวันนี้</td></tr>'}</tbody>
+        </table>
+
+        <h3 style="font-size: 12px; font-weight: 800; margin: 0 0 6px 0; color: #6d28d9;">🤝 2. รายการรับชำระหนี้ค้างเก่าในกะนี้ (${debtPayments.length} รายการ | เงินสด +฿${fin.collectedDebtCash.toLocaleString()} / โอน ฿${fin.collectedDebtTransfer.toLocaleString()})</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; margin-bottom: 12px;">
+          <thead>
+            <tr style="background: #f5f3ff;">
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 6%;">#</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 28%; text-align: left;">ชื่อร้านค้า / ลูกค้าที่จ่ายหนี้เก่า</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 10%;">เวลา</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 32%; text-align: left;">เลขที่บิลค้างที่เคลียร์</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 12%;">วิธีชำระ</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 12%; text-align: right;">ยอดรับชำระ</th>
+            </tr>
+          </thead>
+          <tbody>${debtPaidRows || '<tr><td colspan="6" style="padding: 8px; text-align: center; border: 1px solid #cbd5e1; color: #64748b;">ไม่มีรายการเก็บหนี้ค้างเก่าในกะนี้</td></tr>'}</tbody>
+        </table>
+
+        <h3 style="font-size: 12px; font-weight: 800; margin: 0 0 6px 0; color: #b91c1c;">🚨 3. รายชื่อร้านค้าประจำในสายส่งที่ "ไม่ได้ลงน้ำแข็ง" ในวันนี้ (${missedCusts.length} ร้าน)</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; margin-bottom: 18px;">
+          <thead>
+            <tr style="background: #fef2f2;">
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 6%;">#</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 34%; text-align: left;">ชื่อร้านค้า</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 20%;">เบอร์โทรศัพท์</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 18%; text-align: right;">หนี้ค้างสะสม</th>
+              <th style="padding: 5px; border: 1px solid #cbd5e1; width: 22%;">สถานะ / เหตุผลวันนี้</th>
+            </tr>
+          </thead>
+          <tbody>${missedRows || '<tr><td colspan="5" style="padding: 8px; text-align: center; border: 1px solid #cbd5e1; color: #059669; font-weight: bold;">🎉 ส่งน้ำแข็งครบทุกร้านในสายส่งแล้ว!</td></tr>'}</tbody>
+        </table>
+
+        <div style="display: flex; justify-content: space-around; font-size: 11px; margin-top: 24px; text-align: center;">
+          <div>ลงชื่อ..................................................พนักงานขับรถ<br>(${DRV.driver.EmpName || ''})</div>
+          <div>ลงชื่อ..................................................เสมียนผู้รับเงิน/ตรวจสต๊อก<br>(..................................................)</div>
+        </div>
+      `;
+
+      const a4Container = document.getElementById('a4-container');
+      a4Container.innerHTML = a4HTML;
+      document.body.classList.add('print-a4');
+      a4Container.classList.remove('hidden');
+      window.print();
+      a4Container.classList.add('hidden');
+      document.body.classList.remove('print-a4');
+    }
+
+    // ==========================================
+    // 🛠️ MODALS: เลขไมล์, รับชำระหนี้ค้างเก่า, และยกเลิกบิล
+    // ==========================================
+    function openMileageModal(type) {
+      const dsp = DRV.myDispatch || {};
+      const curVal = type === 'START' ? (parseFloat(dsp.StartMileage) || '') : (parseFloat(dsp.EndMileage) || '');
+      document.getElementById('drv-modal-content').innerHTML = `
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-extrabold text-lg text-slate-800">🛣️ บันทึกเลขไมล์ (${type === 'START' ? 'ก่อนออกส่ง' : 'หลังส่งเสร็จ'})</h3>
+            <button onclick="closeDrvModal()" class="text-slate-400 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+          </div>
+          <input type="number" id="modal-mileage-input" value="${curVal}" class="w-full p-4 border-2 border-blue-500 rounded-2xl text-center font-black text-2xl outline-none bg-slate-50" placeholder="กรอกเลขไมล์หน้าปัดรถ">
+          <div class="flex gap-2">
+            <button onclick="closeDrvModal()" class="w-1/3 py-3.5 bg-slate-100 text-slate-700 font-extrabold rounded-2xl">ปิด</button>
+            <button onclick="submitDriverMileage('${type}')" class="w-2/3 py-3.5 bg-blue-600 text-white font-extrabold rounded-2xl shadow-lg">ยืนยันเลขไมล์</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('drv-modal-backdrop').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    async function submitDriverMileage(type) {
+      const val = parseFloat(document.getElementById('modal-mileage-input').value) || 0;
+      if (val <= 0) return toast('กรุณากรอกเลขไมล์ให้ถูกต้อง', 'error');
+      try {
+        await callApi('updateDriverMileage', { DispatchID: DRV.myDispatch.DispatchID, Type: type, Mileage: val });
+        closeDrvModal();
+        toast('บันทึกเลขไมล์สำเร็จ!');
+        reloadDriverData();
+      } catch (e) {}
+    }
+
+    function openDebtCollectModal(customerId) {
+      const debtInfo = (DRV.data.customerDebtMap || {})[customerId];
+      if (!debtInfo) return;
+      const custObj = (DRV.data.customers || []).find(c => String(c.CustomerID) === String(customerId));
+      const custName = debtInfo.CustomerName || (custObj ? custObj.CustomerName : 'ลูกค้า');
+
+      const billRows = (debtInfo.bills || []).map(b => `
+        <label class="flex items-center justify-between p-3.5 bg-amber-50/40 border-2 border-amber-300 rounded-2xl cursor-pointer">
+          <div class="flex items-center gap-3 min-w-0 pr-2">
+            <input type="checkbox" class="drv-pay-chk w-5 h-5 accent-emerald-600 shrink-0" value="${b.SaleID}" data-amt="${b.TotalAmount}" checked onchange="recalcDrvPay()">
+            <div class="truncate">
+              <p class="font-extrabold text-sm text-slate-800">${b.SaleDate} <span class="text-xs font-mono text-slate-400">(${b.SaleID})</span></p>
+              <p class="text-xs text-slate-600 truncate">${b.ItemSummary}</p>
+            </div>
+          </div>
+          <span class="font-black text-rose-600 text-base shrink-0">฿${Number(b.TotalAmount).toLocaleString()}</span>
+        </label>
+      `).join('');
+
+      document.getElementById('drv-modal-content').innerHTML = `
+        <div class="space-y-4">
+          <div class="flex justify-between items-start">
+            <div>
+              <span class="bg-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold">รับชำระหนี้ค้างหน้างาน</span>
+              <h3 class="font-black text-xl text-slate-800 mt-1">${custName}</h3>
+            </div>
+            <button onclick="closeDrvModal()" class="text-slate-400 p-1"><i data-lucide="x" class="w-6 h-6"></i></button>
+          </div>
+
+          <div>
+            <p class="text-xs font-extrabold text-slate-600 mb-2">ติ๊กเลือกบิลที่ต้องการจ่าย (${debtInfo.billCount} บิล)</p>
+            <div class="space-y-2 max-h-56 overflow-y-auto pr-1">${billRows}</div>
+          </div>
+
+          <div class="bg-slate-900 text-white p-4 rounded-2xl flex justify-between items-center">
+            <span class="text-sm font-extrabold">ยอดรับชำระรวม:</span>
+            <span id="drv-pay-amt-label" data-amt="${debtInfo.totalDebt}" class="font-black text-3xl text-emerald-400">฿${Number(debtInfo.totalDebt).toLocaleString()}</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5 pt-1">
+            <button onclick="submitDrvDebtCollect('${esc(customerId)}', 'เงินสด')" class="py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold rounded-2xl shadow-md text-sm flex items-center justify-center gap-1.5">
+              💵 รับเงินสด
+            </button>
+            <button onclick="submitDrvDebtCollect('${esc(customerId)}', 'โอนเงิน')" class="py-4 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold rounded-2xl shadow-md text-sm flex items-center justify-center gap-1.5">
+              📱 ลูกค้าโอน
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('drv-modal-backdrop').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function recalcDrvPay() {
+      let sum = 0;
+      document.querySelectorAll('.drv-pay-chk:checked').forEach(chk => {
+        sum += parseFloat(chk.getAttribute('data-amt')) || 0;
+      });
+      const el = document.getElementById('drv-pay-amt-label');
+      if (el) {
+        el.innerText = '฿' + sum.toLocaleString();
+        el.setAttribute('data-amt', sum);
+      }
+    }
+
+    async function submitDrvDebtCollect(customerId, method) {
+      const saleIds = [];
+      document.querySelectorAll('.drv-pay-chk:checked').forEach(chk => saleIds.push(chk.value));
+      if (saleIds.length === 0) return toast('กรุณาติ๊กเลือกบิลอย่างน้อย 1 บิล', 'error');
+
+      const amount = parseFloat(document.getElementById('drv-pay-amt-label')?.getAttribute('data-amt')) || 0;
+      const debtInfo = (DRV.data.customerDebtMap || {})[customerId];
+      const custObj = (DRV.data.customers || []).find(c => String(c.CustomerID) === String(customerId));
+      const custName = (debtInfo && debtInfo.CustomerName) || (custObj ? custObj.CustomerName : String(customerId).replace(/^WALK-IN::/, ''));
+      const cleanCustomerId = String(customerId).startsWith('WALK-IN::') ? 'WALK-IN' : customerId;
+
+      try {
+        await callApi('savePayment', {
+          CustomerID: cleanCustomerId,
+          CustomerName: custName,
+          SaleIDs: saleIds,
+          AmountPaid: amount,
+          PaymentMethod: method,
+          CreatedBy: 'คนขับ: ' + DRV.driver.EmpName
+        });
+        closeDrvModal();
+        toast('บันทึกรับชำระหนี้สำเร็จ!');
+        reloadDriverData();
+      } catch (e) {}
+    }
+
+    function openCancelDrvSaleModal(saleId) {
+      document.getElementById('drv-modal-content').innerHTML = `
+        <div class="space-y-4">
+          <h3 class="font-extrabold text-lg text-rose-600 text-center">⚠️ ยืนยันยกเลิกบิล ${saleId}</h3>
+          <p class="text-xs text-slate-500 text-center">เมื่อกดยกเลิก สต๊อกน้ำแข็งจะถูกคืนกลับเข้าบนรถอัตโนมัติ</p>
+          <select id="cancel-reason-sel" class="w-full p-3.5 border-2 border-slate-300 rounded-xl font-bold text-sm bg-white text-slate-900 outline-none">
+            <option value="ทำรายการผิด">ทำรายการผิด / กดผิดร้าน</option>
+            <option value="เปลี่ยนวิธีชำระเงิน">เปลี่ยนวิธีชำระเงิน</option>
+            <option value="ลูกค้าคืนของ">ลูกค้ายกเลิก/คืนของ</option>
+          </select>
+          <div class="flex gap-2">
+            <button onclick="closeDrvModal()" class="w-1/3 py-3.5 bg-slate-100 rounded-xl font-bold text-slate-700">ปิด</button>
+            <button onclick="confirmCancelDrvSale('${saleId}')" class="w-2/3 py-3.5 bg-rose-600 text-white font-extrabold rounded-xl shadow-md">ยืนยันยกเลิกบิล</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('drv-modal-backdrop').classList.remove('hidden');
+    }
+
+    async function confirmCancelDrvSale(saleId) {
+      try {
+        await callApi('cancelSale', {
+          SaleID: saleId,
+          Reason: document.getElementById('cancel-reason-sel').value,
+          CancelledBy: 'คนขับ: ' + DRV.driver.EmpName
+        });
+        closeDrvModal();
+        toast('ยกเลิกบิลและคืนสต๊อกบนรถสำเร็จ!');
+        reloadDriverData();
+      } catch (e) {}
+    }
+
+    window.onload = () => {
+      lucide.createIcons();
+      const savedPin = sessionStorage.getItem('MAEJAI_DRV_PIN');
+      if (savedPin) {
+        document.getElementById('login-pin').value = savedPin;
+        verifyDriverPin(savedPin);
+      }
+    };
+  </script>
+</body>
+</html>

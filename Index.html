@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>โรงน้ำแข็งแม่ใจ - Smart Factory ERP</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Prompt', sans-serif; -webkit-tap-highlight-color: transparent; }
+    .active-nav { background-color: #eff6ff !important; color: #1d4ed8 !important; font-weight: 700 !important; border-right: 4px solid #2563eb; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen flex overflow-hidden select-none">
+
+  <!-- 🔐 FACTORY LOGIN SCREEN (หน้าจอล็อกอินระบบโรงงาน - ปิดแท็กสมดุล 100%) -->
+  <div id="factory-login-screen" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-7 border border-slate-200 space-y-6 my-auto">
+      <div class="text-center space-y-2">
+        <div class="w-16 h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-blue-500/30">
+          <i data-lucide="droplets" class="w-9 h-9"></i>
+        </div>
+        <h1 class="text-2xl font-black text-slate-800 tracking-tight">โรงน้ำแข็งแม่ใจ</h1>
+        <p class="text-xs font-bold text-blue-600 bg-blue-50 inline-block px-3 py-1 rounded-full border border-blue-200">Smart Factory ERP V5.2 • ระบบสำนักงาน & หน้าลาน</p>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-extrabold text-slate-600 block mb-2 text-center">กรอกรหัส PIN พนักงานสำนักงาน / ผู้บริหาร</label>
+          <input type="password" id="factory-pin-input" inputmode="numeric" maxlength="6" placeholder="••••" onkeydown="if(event.key==='Enter') submitFactoryLogin()" class="w-full p-4 bg-slate-50 border-2 border-slate-300 rounded-2xl text-center text-3xl font-black tracking-[0.5em] text-slate-900 outline-none focus:border-blue-600 focus:bg-white transition">
+        </div>
+
+        <!-- แป้นกดตัวเลขด่วนสำหรับหน้าจอสัมผัส / เมาส์คลิก -->
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="appendFactoryPin('1')" class="py-3 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl font-black text-lg text-slate-800 transition">1</button>
+          <button type="button" onclick="appendFactoryPin('2')" class="py-3 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl font-black text-lg text-slate-800 transition">2</button>
+          <button type="button" onclick="appendFactoryPin('3')" class="py-3 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl font-black text-lg text-slate-800 transition">3</button>
+          <button type="button" onclick="appendFactoryPin('4')" class="py-3 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl font-black text-lg text-slate-800 transition">4</button>
+          <button type="button" onclick="appendFactoryPin('5')" class="py-3 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl font-black text-lg text-slate-800 transition">5</button>
+          <button type="button" onclick="appendFactoryPin('6')" class="py-3 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl font-black text-lg text-slate-800 transition">6</button>
+          <button type="button" onclick="appendFactoryPin('7')" class="py-3 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl font-black text-lg text-slate-800 transition">7</button>
+          <button type="button" onclick="appendFactoryPin('8')" class="py-3 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl font-black text-lg text-slate-800 transition">8</button>
+          <button type="button" onclick="appendFactoryPin('9')" class="py-3 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl font-black text-lg text-slate-800 transition">9</button>
+          <button type="button" onclick="clearFactoryPin()" class="py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-extrabold text-xs transition">ล้าง</button>
+          <button type="button" onclick="appendFactoryPin('0')" class="py-3 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl font-black text-lg text-slate-800 transition">0</button>
+          <button type="button" onclick="backspaceFactoryPin()" class="py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-extrabold text-xs flex items-center justify-center transition"><i data-lucide="delete" class="w-5 h-5"></i></button>
+        </div>
+
+        <button type="button" onclick="submitFactoryLogin()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold rounded-2xl shadow-lg shadow-blue-200 text-base transition flex items-center justify-center gap-2">
+          <i data-lucide="log-in" class="w-5 h-5"></i> เข้าสู่ระบบโรงงาน
+        </button>
+      </div>
+
+      <!-- 🚚 ปุ่มเล็กด้านล่างสำหรับเข้าหน้าพนักงานส่งน้ำแข็ง -->
+      <div class="pt-3 border-t border-slate-100 text-center space-y-2.5">
+        <button type="button" id="btn-switch-driver-app" onclick="goToDriverApp()" class="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 text-xs font-extrabold transition flex items-center justify-center gap-1.5 active:scale-95">
+          <i data-lucide="truck" class="w-4 h-4 text-blue-600"></i>
+          <span>สำหรับพนักงานส่งน้ำแข็ง (เข้าหน้าหน่วยรถสายส่ง)</span>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+        </button>
+        <p class="text-[11px] text-slate-400">ตั้งค่ารหัส PIN พนักงานได้ที่เมนู <b>"ระบบพนักงาน & PIN"</b></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⏳ LOADING OVERLAY -->
+  <div id="loading-overlay" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center">
+    <div class="bg-white p-5 rounded-2xl shadow-2xl flex items-center gap-3.5 border border-slate-100">
+      <div class="w-7 h-7 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <span class="font-bold text-slate-700 text-sm">กำลังประมวลผลข้อมูล...</span>
+    </div>
+  </div>
+
+  <!-- 🔔 TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- 🪟 CENTRAL MODAL BACKDROP -->
+  <div id="modal-backdrop" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 flex items-center justify-center p-4 overflow-y-auto">
+    <div id="modal-content" class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 my-8 max-h-[90vh] overflow-y-auto"></div>
+  </div>
+
+  <!-- 🧭 SIDEBAR NAVIGATION (PC / TABLET) -->
+  <aside class="w-64 bg-white border-r border-slate-200 flex-col justify-between hidden md:flex shrink-0 z-20 h-full">
+    <div class="p-4 border-b border-slate-100 flex items-center gap-3 shrink-0">
+      <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-200 shrink-0">
+        <i data-lucide="droplets" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h1 class="font-extrabold text-lg text-slate-800 leading-tight">โรงน้ำแข็งแม่ใจ</h1>
+        <p class="text-[11px] font-semibold text-blue-600">Smart Factory ERP V5.2</p>
+      </div>
+    </div>
+
+    <div class="p-3 flex-1 overflow-y-auto space-y-5">
+      <div>
+        <p class="px-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">ปฏิบัติงานรายวัน</p>
+        <nav class="space-y-1">
+          <button onclick="navigate('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="layout-dashboard" class="w-5 h-5 text-blue-600"></i>
+            <span>ภาพรวมวันนี้</span>
+          </button>
+          <button onclick="navigate('pos')" id="nav-pos" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="receipt" class="w-5 h-5 text-emerald-600"></i>
+            <span>ออกบิลขายน้ำแข็ง</span>
+          </button>
+          <button onclick="navigate('settlement')" id="nav-settlement" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="truck" class="w-5 h-5 text-indigo-600"></i>
+            <span>สายส่ง & เคลียร์เงิน</span>
+          </button>
+          <button onclick="navigate('buckets')" id="nav-buckets" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="archive-restore" class="w-5 h-5 text-cyan-600"></i>
+            <span>ระบบยืม-คืนถัง</span>
+          </button>
+          <button onclick="navigate('credit')" id="nav-credit" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="wallet" class="w-5 h-5 text-amber-600"></i>
+            <span>ระบบลูกหนี้ / วางบิล</span>
+          </button>
+          <button onclick="navigate('inventory')" id="nav-inventory" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="boxes" class="w-5 h-5 text-teal-600"></i>
+            <span>ระบบสต๊อก / คลังสินค้า</span>
+          </button>
+          <button onclick="navigate('expenses')" id="nav-expenses" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="flame" class="w-5 h-5 text-rose-600"></i>
+            <span>รายรับ-รายจ่ายโรงงาน</span>
+          </button>
+          <button onclick="navigate('reports')" id="nav-reports" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="bar-chart-3" class="w-5 h-5 text-purple-600"></i>
+            <span>รายงานธุรกิจย้อนหลัง</span>
+          </button>
+        </nav>
+      </div>
+
+      <div id="sidebar-master-section">
+        <p class="px-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">ฐานข้อมูลหลัก</p>
+        <nav class="space-y-1">
+          <button onclick="navigate('customers')" id="nav-customers" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="users" class="w-4 h-4 text-slate-500"></i>
+            <span>ทะเบียนลูกค้า</span>
+          </button>
+          <button onclick="navigateMaster('tb_Products')" id="nav-tb_Products" class="nav-btn admin-only-nav w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="package" class="w-4 h-4 text-slate-500"></i>
+            <span>ทะเบียนสินค้า</span>
+          </button>
+          <button onclick="navigateMaster('tb_SpecialPrices')" id="nav-tb_SpecialPrices" class="nav-btn admin-only-nav w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="badge-dollar-sign" class="w-4 h-4 text-slate-500"></i>
+            <span>ทะเบียนราคาพิเศษ</span>
+          </button>
+          <button onclick="navigateMaster('tb_Promotions')" id="nav-tb_Promotions" class="nav-btn admin-only-nav w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="gift" class="w-4 h-4 text-slate-500"></i>
+            <span>ทะเบียนโปรโมชั่น</span>
+          </button>
+          <button onclick="navigateMaster('tb_Routes')" id="nav-tb_Routes" class="nav-btn admin-only-nav w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="map-pin" class="w-4 h-4 text-slate-500"></i>
+            <span>ระบบสายส่ง</span>
+          </button>
+          <button onclick="navigateMaster('tb_Vehicles')" id="nav-tb_Vehicles" class="nav-btn admin-only-nav w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="car-front" class="w-4 h-4 text-slate-500"></i>
+            <span>ทะเบียนรถขนส่ง</span>
+          </button>
+          <button onclick="navigateMaster('tb_Employees')" id="nav-tb_Employees" class="nav-btn admin-only-nav w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="user-check" class="w-4 h-4 text-slate-500"></i>
+            <span>ระบบพนักงาน & PIN</span>
+          </button>
+          <button onclick="navigate('bucket_master')" id="nav-bucket_master" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">
+            <i data-lucide="archive" class="w-4 h-4 text-slate-500"></i>
+            <span>ทะเบียนถังน้ำแข็ง</span>
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <!-- 👤 แถบแสดงชื่อผู้ใช้งานที่ล็อกอินอยู่ & ปุ่มออกจากระบบ -->
+    <div class="p-3 border-t border-slate-200 bg-slate-50 shrink-0 space-y-2">
+      <div class="flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <p id="current-user-name" class="text-xs font-extrabold text-slate-800 truncate">ยังไม่ได้เข้าสู่ระบบ</p>
+          <p id="current-user-role" class="text-[10px] font-bold text-blue-600 truncate">รอการยืนยันตัวตน</p>
+        </div>
+        <button onclick="logoutFactory()" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[11px] font-extrabold flex items-center gap-1 shrink-0 transition" title="ออกจากระบบ / สลับกะพนักงาน">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i> ออก
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 🖥️ MAIN CONTENT WORKSPACE -->
+  <main class="flex-1 flex flex-col h-full overflow-hidden pb-16 md:pb-0">
+    <header class="bg-white border-b border-slate-200 p-3.5 flex md:hidden items-center justify-between shrink-0 z-10">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+          <i data-lucide="droplets" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <span class="font-extrabold text-slate-800 text-sm block leading-none">โรงน้ำแข็งแม่ใจ ERP</span>
+          <span id="mobile-user-badge" class="text-[10px] font-bold text-blue-600"></span>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <select onchange="handleMobileMenu(this.value)" class="p-2 border-2 border-slate-200 rounded-xl text-xs font-bold bg-slate-50 text-slate-700 outline-none focus:border-blue-500">
+          <optgroup label="ปฏิบัติงานรายวัน">
+            <option value="dashboard">📊 ภาพรวมวันนี้</option>
+            <option value="pos">🛒 ออกบิลขายน้ำแข็ง</option>
+            <option value="settlement">🚚 สายส่ง & เคลียร์เงิน</option>
+            <option value="buckets">🪣 ระบบยืม-คืนถัง</option>
+            <option value="credit">💳 ระบบลูกหนี้ / วางบิล</option>
+            <option value="inventory">📦 ระบบสต๊อก / คลังสินค้า</option>
+            <option value="expenses">🔥 รายรับ-รายจ่ายโรงงาน</option>
+            <option value="reports">📈 รายงานธุรกิจย้อนหลัง</option>
+          </optgroup>
+          <optgroup label="ฐานข้อมูลหลัก">
+            <option value="customers">👥 ทะเบียนลูกค้า</option>
+            <option value="M:tb_Products">🧊 ทะเบียนสินค้า</option>
+            <option value="M:tb_SpecialPrices">🏷️ ทะเบียนราคาพิเศษ</option>
+            <option value="M:tb_Promotions">🎁 ทะเบียนโปรโมชั่น</option>
+            <option value="M:tb_Routes">📍 ระบบสายส่ง</option>
+            <option value="M:tb_Vehicles">🚛 ทะเบียนรถขนส่ง</option>
+            <option value="M:tb_Employees">🪪 ระบบพนักงาน & PIN</option>
+            <option value="bucket_master">🗄️ ทะเบียนถังน้ำแข็ง</option>
+          </optgroup>
+        </select>
+        <button onclick="logoutFactory()" class="p-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl"><i data-lucide="log-out" class="w-4 h-4"></i></button>
+      </div>
+    </header>
+
+    <div id="app-view" class="flex-1 overflow-y-auto p-4 md:p-6"></div>
+  </main>
+
+  <?!= include('JavaScript'); ?>
+  <?!= include('Modals'); ?>
+</body>
+</html>
